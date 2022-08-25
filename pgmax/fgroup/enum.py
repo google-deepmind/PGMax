@@ -54,11 +54,11 @@ class EnumFactorGroup(fgroup.FactorGroup):
   """
 
   factor_configs: np.ndarray
-  log_potentials: Optional[np.ndarray] = None
+  log_potentials: Optional[np.ndarray] = None  #: :meta private:
   factor_type: Type[factor.Factor] = dataclasses.field(
       init=False,
       default=enum.EnumFactor,
-  )
+  )  #: :meta private:
 
   def __post_init__(self):
     super().__post_init__()
@@ -206,11 +206,11 @@ class PairwiseFactorGroup(fgroup.FactorGroup):
           variables in the factors.
   """
 
-  log_potential_matrix: Optional[np.ndarray] = None
+  log_potential_matrix: Optional[np.ndarray] = None  #: :meta private:
   factor_type: Type[factor.Factor] = dataclasses.field(
       init=False,
       default=enum.EnumFactor,
-  )
+  )  #: :meta private:
 
   def __post_init__(self):
     super().__post_init__()

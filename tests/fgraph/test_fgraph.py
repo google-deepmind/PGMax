@@ -211,6 +211,7 @@ def test_bp():
   bp_arrays = bp.update(
       bp_arrays=bp_arrays,
       ftov_msgs_updates={vg[0]: np.zeros(15)},
+      log_potentials_updates={factor_group: np.ones(10)},
   )
   bp_arrays = bp.run_bp(bp_arrays, num_iters=1)
   bp_arrays = dataclasses.replace(bp_arrays, log_potentials=jnp.zeros((10)))

@@ -1,0 +1,76 @@
+name: pytest
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+jobs:
+  test-ubuntu:
+    name: "pytest on ${{ matrix.python-version }} on ${{ matrix.os }}"
+    runs-on: "${{ matrix.os }}"
+    strategy:
+      matrix:
+        python-version: [3.7, 3.8, 3.9]
+        os: [ubuntu-latest]
+    steps:
+      #----------------------------------------------
+      #       cancel any pending actions
+      #----------------------------------------------
+      - name: Cancel previous
+        uses: styfle/cancel-workflow-action@0.8.0
+        with:
+          access_token: ${{ github.token }}
+        if: ${{github.ref != 'refs/head/master'}}
+      #----------------------------------------------
+      #       check-out repo and set-up python
+      #----------------------------------------------
+      - name: Check out repository
+        uses: actions/checkout@v2
+      - name: Set up python
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+      #----------------------------------------------
+      #               set up Python
+      #----------------------------------------------
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v1
+        with:
+          python-version: ${{ matrix.python-version }}
+      #----------------------------------------------
+      #             install dependencies
+      #----------------------------------------------
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip setuptools wheel
+          pip install -r requirements.txt
+      #----------------------------------------------
+      #         print installed dependencies
+      #----------------------------------------------
+      - name: Print installed dependencies
+        run: |
+          pip freeze
+      #----------------------------------------------
+      #         run test suite with coverage
+      #----------------------------------------------
+      - name: Test with coverage
+        run: |
+          pytest --cov=pgmax --cov-report=xml --cov-report=term-missing:skip-covered
+      #----------------------------------------------
+      #      upload coverage report to codecov
+      #----------------------------------------------
+      - name: Upload Coverage to Codecov
+        uses: codecov/codecov-action@v2
+        with:
+          verbose: true # optional (default = false)
+      #----------------------------------------------
+      #        test docs build only on PR
+      #----------------------------------------------
+      - name: Test docs build
+        run: |
+          cd docs
+          make html SPHINXOPTS="-W"

@@ -1,0 +1,4 @@
+# sphinx <4 required by myst-nb v0.12.0 (Feb 2021)
+# We might want to use myst-nb for doc tutorials with jupyter notebooks!
+sphinx >=4
+sphinx-rtd-theme==0.5.2

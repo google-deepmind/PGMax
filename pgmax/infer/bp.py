@@ -65,7 +65,7 @@ class BeliefPropagation:
         bp_arrays: Initial arrays of log_potentials, ftov_msgs, evidence.
         num_iters: Number of belief propagation iterations.
         damping: The damping factor to use for message updates between one
-          timestep and the next.
+        timestep and the next.
 
       Returns:
         A BPArrays containing the updated ftov_msgs.
@@ -104,7 +104,7 @@ def BP(bp_state: BPState, temperature: float = 0.0) -> BeliefPropagation:
   Returns:
     Belief propagation functions.
   """
-  if jax.lib.xla_bridge.get_backend().platform == "tpu":
+  if jax.lib.xla_bridge.get_backend().platform == "tpu":  # pragma: no cover
     warnings.warn(
         "PGMax is not optimized for the TPU backend. Please consider using"
         " GPUs!"
