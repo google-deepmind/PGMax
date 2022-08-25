@@ -58,6 +58,7 @@ cd PGMax
 python -m venv pgmax_env
 source pgmax_env/bin/activate
 pip install --upgrade pip setuptools
+pip install -r requirements.txt
 python setup.py develop
 ```
 

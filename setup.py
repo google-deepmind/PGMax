@@ -29,11 +29,6 @@ def _get_version():
     raise ValueError('`__version__` not defined in `pgmax/__init__.py`')
 
 
-def _parse_requirements(requirements_txt_path):
-  with open(requirements_txt_path) as fp:
-    return fp.read().splitlines()
-
-
 VERSION = _get_version()
 
 if __name__ == '__main__':
@@ -50,7 +45,5 @@ if __name__ == '__main__':
       long_description=open('README.md').read(),
       long_description_content_type='text/markdown',
       author_email='pgmax-dev@google.com',
-      requires_python='>=3.7,<3.10',
-      include_package_data=True,
-      install_requires=_parse_requirements('requirements.txt'),
+      requires_python='>=3.7,<3.11',
   )
