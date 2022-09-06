@@ -71,7 +71,7 @@ class NDVarArray(vgroup.VarGroup):
       )
 
   def __getitem__(
-      self, val: Union[int, slice, Tuple[int, ...]]
+      self, val: Union[int, slice, Tuple[Union[int, slice], ...]]
   ) -> Union[Tuple[int, int], List[Tuple[int, int]]]:
     """Given an index or a slice, retrieve the associated variable(s).
 
