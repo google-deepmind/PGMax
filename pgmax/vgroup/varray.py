@@ -88,15 +88,15 @@ class NDVarArray(vgroup.VarGroup):
     """
     assert isinstance(self.num_states, np.ndarray)
 
-    if isinstance(val, slice) or (
-        isinstance(val, tuple) and isinstance(val[0], slice)
-    ):
-      assert isinstance(self.num_states, np.ndarray)
-      vars_names = self.variable_hashes[val].flatten()
-      vars_num_states = self.num_states[val].flatten()
-      return list(zip(vars_names, vars_num_states))
+    vars_names = self.variable_hashes[val]
+    vars_num_states = self.num_states[val]
 
-    return (self.variable_hashes[val], self.num_states[val])
+    if isinstance(vars_names, np.ndarray):
+      vars_names = vars_names.flatten()
+      vars_num_states = vars_num_states.flatten()
+      return list(zip(vars_names, vars_num_states))
+    else:
+      return (vars_names, vars_num_states)
 
   @cached_property
   def variable_hashes(self) -> np.ndarray:
