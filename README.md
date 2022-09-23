@@ -1,11 +1,7 @@
-[![continuous-integration](https://github.com/deepmind/PGMax/actions/workflows/ci.yaml/badge.svg)]
-(https://github.com/deepmind/PGMax/actions/workflows/ci.yaml)
-[![PyPI version](https://badge.fury.io/py/pgmax.svg)]
-(https://badge.fury.io/py/pgmax)
-[![codecov](https://codecov.io/gh/deepmind/PGMax/branch/master/graph/badge.svg?token=FrRlTDCFjk)]
-(https://codecov.io/gh/deepmind/PGMax)
-[![Documentation Status](https://readthedocs.org/projects/PGMax/badge/?version=latest)]
-(https://pgmax.readthedocs.io/en/latest/?badge=latest)
+[![continuous-integration](https://github.com/deepmind/PGMax/actions/workflows/ci.yaml/badge.svg)](https://github.com/deepmind/PGMax/actions/workflows/ci.yaml)
+[![PyPI version](https://badge.fury.io/py/pgmax.svg)](https://badge.fury.io/py/pgmax)
+[![codecov](https://codecov.io/gh/deepmind/PGMax/branch/master/graph/badge.svg?token=FrRlTDCFjk)](https://codecov.io/gh/deepmind/PGMax)
+[![Documentation Status](https://readthedocs.org/projects/PGMax/badge/?version=latest)](https://pgmax.readthedocs.io/en/latest/?badge=latest)
 
 # PGMax
 
@@ -52,7 +48,7 @@ we *strongly* recommend using a
 to manage your dependencies. This should help to avoid version conflicts and
 just generally make the installation process easier.
 
-```bash
+```
 git clone https://github.com/deepmind/PGMax.git
 cd PGMax
 python -m venv pgmax_env
