@@ -34,17 +34,17 @@ class EnumFactorGroup(fgroup.FactorGroup):
   """Class to represent a group of EnumFactors.
 
   All factors in the group are assumed to have the same set of valid
-  configurations and the same potential function.
-  Note that the log potential function is assumed to be uniform 0 unless
-  the inheriting class includes a log_potentials argument.
+  configurations.
+  The associated log potentials can however be different across factors.
 
   Attributes:
     factor_configs: Array of shape (num_val_configs, num_variables) containing
       explicit enumeration of all valid configurations
-    log_potentials: Optional array of shape (num_val_configs,) or (num_factors,
-      num_val_configs). If specified, it contains the log of the potential value
-      for every possible configuration. If None, it is assumed the log potential
-      is uniform 0 and such an array is automatically initialized.
+    log_potentials: Optional 1D array of shape (num_val_configs,) or 2D array of
+      shape (num_factors, num_val_configs).
+      If 1D, the log potentials are copied for each factor of the group.
+      If 2D, it specifices the log potentials of each factor.
+      If None, the log potential are initialized to uniform 0.
     factor_type: Factor type shared by all the Factors in the FactorGroup.
 
   Raises:
@@ -184,14 +184,17 @@ class PairwiseFactorGroup(fgroup.FactorGroup):
   """Class to represent a group of EnumFactors where each factor connects to two different variables.
 
   All factors in the group are assumed to be such that all possible
-  configurations of the two variable's states are valid. Additionally,
-  all factors in the group are assumed to share the same potential function.
+  configurations of the two variables are valid.
+  The associated log potentials can however be different across factors.
 
   Attributes:
-    log_potential_matrix: array of shape (var1.num_states, var2.num_states),
-      where var1 and var2 are the 2 VarGroups (that may refer to the same
-      VarGroup) whose names are present in each sub-list from
-      self.variables_for_factors.
+    log_potential_matrix: Optional 2D array of shape (num_states1, num_states2)
+      or 3D array of shape (num_factors, num_states1, num_states2) where
+      num_states1 and num_states2 are the number of states of the first and
+      second variables involved in each factor.
+      If 2D, the log potentials are copied for each factor of the group.
+      If 3D, it specifies the log potentials of each factor.
+      If None, the log potential are initialized to uniform 0.
     factor_type: Factor type shared by all the Factors in the FactorGroup.
 
   Raises:

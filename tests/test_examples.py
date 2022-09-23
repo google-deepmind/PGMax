@@ -46,9 +46,11 @@ def test_ising_model():
   # Run inference
   bp = infer.BP(fg.bp_state, temperature=0)
 
-  bp_arrays = bp.init(evidence_updates={
-      variables: jax.device_put(np.random.gumbel(size=(50, 50, 2)))
-  })
+  bp_arrays = bp.init(
+      evidence_updates={
+          variables: jax.device_put(np.random.gumbel(size=(50, 50, 2)))
+      }
+  )
   bp_arrays = bp.run_bp(bp_arrays, num_iters=3000)
   beliefs = bp.get_beliefs(bp_arrays)
   img = infer.decode_map_states(beliefs)[variables]

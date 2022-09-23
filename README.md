@@ -9,25 +9,25 @@
 
 # PGMax
 
-PGMax implements general [factor graphs](https://en.wikipedia.org/wiki/Factor_graph) 
-for discrete probabilistic graphical models (PGMs), and 
+PGMax implements general [factor graphs](https://en.wikipedia.org/wiki/Factor_graph)
+for discrete probabilistic graphical models (PGMs), and
 hardware-accelerated differentiable [loopy belief propagation (LBP)]
-(https://en.wikipedia.org/wiki/Belief_propagation) 
+(https://en.wikipedia.org/wiki/Belief_propagation)
 in [JAX](https://jax.readthedocs.io/en/latest/).
 
-- **General factor graphs**: PGMax supports easy specification of general 
-factor graphs with potentially complicated topology, factor definitions, 
+- **General factor graphs**: PGMax supports easy specification of general
+factor graphs with potentially complicated topology, factor definitions,
 and discrete variables with a varying number of states.
-- **LBP in JAX**: PGMax generates pure JAX functions implementing LBP for a 
-given factor graph. The generated pure JAX functions run on modern accelerators 
-(GPU/TPU), work with JAX transformations 
-(e.g. `vmap` for processing batches of models/samples, 
-`grad` for differentiating through the LBP iterative process), 
+- **LBP in JAX**: PGMax generates pure JAX functions implementing LBP for a
+given factor graph. The generated pure JAX functions run on modern accelerators
+(GPU/TPU), work with JAX transformations
+(e.g. `vmap` for processing batches of models/samples,
+`grad` for differentiating through the LBP iterative process),
 and can be easily used as part of a larger end-to-end differentiable system.
 
 See our [companion paper](https://arxiv.org/abs/2202.04110) for more details.
 
-PGMax is under active development. APIs may change without notice, 
+PGMax is under active development. APIs may change without notice,
 and expect rough edges!
 
 [**Installation**](#installation)
@@ -46,7 +46,7 @@ pip install git+https://github.com/deepmind/PGMax.git
 ```
 
 ### Developer
-While you can install PGMax in your standard python environment, 
+While you can install PGMax in your standard python environment,
 we *strongly* recommend using a
 [Python virtual environment](https://docs.python.org/3/tutorial/venv.html)
 to manage your dependencies. This should help to avoid version conflicts and
@@ -65,7 +65,7 @@ python setup.py develop
 ### Install on GPU
 
 By default the above commands install JAX for CPU. If you have access to a GPU, 
-follow the official instructions [here](https://github.com/google/jax#pip-installation-gpu-cuda) 
+follow the official instructions [here](https://github.com/google/jax#pip-installation-gpu-cuda)
 to install JAX for GPU.
 
 ## Getting Started
@@ -73,24 +73,24 @@ to install JAX for GPU.
 
 Here are a few self-contained Colab notebooks to help you get started on using PGMax:
 
-- [Tutorial on basic PGMax usage](https://colab.research.google.com/github/deepmind/PGMax/blob/master/rbm.ipynb)
-- [Implementing max-product LBP](https://colab.research.google.com/github/deepmind/PGMax/blob/master/rcn.ipynb) 
+- [Tutorial on basic PGMax usage](https://colab.research.google.com/github/deepmind/PGMax/blob/master/examples/rbm.ipynb)
+- [Implementing max-product LBP](https://colab.research.google.com/github/deepmind/PGMax/blob/master/examples/rcn.ipynb)
 for [Recursive Cortical Networks](https://www.science.org/doi/10.1126/science.aag2612)
-- [End-to-end differentiable LBP for gradient-based PGM training](https://colab.research.google.com/github/deepmind/PGMax/blob/master/gmrf.ipynb)
-- [2D binary deconvolution](https://colab.research.google.com/github/deepmind/PGMax/blob/master/pmp_binary_deconvolution.ipynb)
+- [End-to-end differentiable LBP for gradient-based PGM training](https://colab.research.google.com/github/deepmind/PGMax/blob/master/examples/gmrf.ipynb)
+- [2D binary deconvolution](https://colab.research.google.com/github/deepmind/PGMax/blob/master/examples/pmp_binary_deconvolution.ipynb)
 
 ## Citing PGMax
 
 Please consider citing our [companion paper](https://arxiv.org/abs/2202.04110) if you use PGMax in your work:
+
 ```
 @article{zhou2022pgmax,
-  author = {Zhou, Guangyao and Kumar, Nishanth and Dedieu, Antoine and L{\'a}zaro-Gredilla, Miguel and Kushagra, Shrinu and George, Dileep},
+  author = {Zhou, Guangyao and Dedieu, Antoine and Kumar, Nishanth and L{\'a}zaro-Gredilla, Miguel and Kushagra, Shrinu and George, Dileep},
   title = {{PGMax: Factor Graphs for Discrete Probabilistic Graphical Models and Loopy Belief Propagation in JAX}},
   journal = {arXiv preprint arXiv:2202.04110},
   year={2022}
 }
 ```
-First two authors contributed equally.
 
 ## Note
 

@@ -25,6 +25,7 @@ import jax.numpy as jnp
 import numpy as np
 from pgmax import fgraph
 from pgmax import fgroup
+from pgmax.utils import NEG_INF
 
 
 @jax.tree_util.register_pytree_node_class
@@ -76,6 +77,11 @@ def update_log_potentials(
         log_potentials shape.
     (2) Provided name is not valid for log_potentials updates.
   """
+  # Clip updates to not have infinite values
+  updates = jax.tree_util.tree_map(
+      lambda x: jnp.clip(x, NEG_INF, -NEG_INF), updates
+  )
+
   for factor_group, data in updates.items():
     if factor_group in fg_state.factor_group_to_potentials_starts:
       flat_data = factor_group.flatten(data)
@@ -185,6 +191,11 @@ def update_ftov_msgs(
     (1) provided ftov_msgs shape does not match the expected ftov_msgs shape.
     (2) provided variable is not in the FactorGraph.
   """
+  # Clip updates to not have infinite values
+  updates = jax.tree_util.tree_map(
+      lambda x: jnp.clip(x, NEG_INF, -NEG_INF), updates
+  )
+
   for variable, data in updates.items():
     if variable in fg_state.vars_to_starts:
       if data.shape != (variable[1],):
@@ -283,6 +294,11 @@ def update_evidence(
   Returns:
     A flat jnp array containing updated evidence.
   """
+  # Clip updates to not have infinite values
+  updates = jax.tree_util.tree_map(
+      lambda x: jnp.clip(x, NEG_INF, -NEG_INF), updates
+  )
+
   for name, data in updates.items():
     # Name is a variable_group or a variable
     if name in fg_state.variable_groups:

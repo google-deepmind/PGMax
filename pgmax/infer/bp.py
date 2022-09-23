@@ -34,6 +34,7 @@ from pgmax.infer.bp_state import BPState
 from pgmax.infer.bp_state import Evidence
 from pgmax.infer.bp_state import FToVMessages
 from pgmax.infer.bp_state import LogPotentials
+from pgmax.utils import NEG_INF
 
 
 @dataclasses.dataclass(frozen=True, eq=False)
@@ -388,8 +389,8 @@ def normalize_and_clip_msgs(
       edges_num_states,
       total_repeat_length=msgs.shape[0],
   )
-  # Clip message values to be always greater than -1000
-  msgs = jnp.clip(msgs, -1000, None)
+  # Clip message values to be always greater than NEG_INF
+  msgs = jnp.clip(msgs, NEG_INF, None)
   return msgs
 
 
@@ -410,7 +411,19 @@ def decode_map_states(beliefs: Dict[Hashable, Any]) -> Any:
 
 @jax.jit
 def get_marginals(beliefs: Dict[Hashable, Any]) -> Any:
-  """Function to get marginal probabilities given the calculated beliefs.
+  """Function normalizing the beliefs to a valid probability distribution.
+
+  When the temperature is equal to 1.0, get_marginals returns the sum-product
+  estimate of the marginal probabilities.
+
+  When the temperature is equal to 0.0, get_marginals returns the max-product
+  estimate of the normalized max-marginal probabilities, defined as:
+  norm_max_marginals(x_i^*) ∝ max_{x: x_i = x_i^*} p(x)
+
+  When the temperature is strictly between 0.0 and 1.0, get_marginals returns
+  the belief propagation estimate of the normalized soft max-marginal
+  probabilities, defined as:
+  norm_soft_max_marginals(x_i^*) ∝ (sum_{x: x_i = x_i^*} p(x)^{1 /Temp})^Temp
 
   Args:
     beliefs: An array or a PyTree container containing beliefs for different

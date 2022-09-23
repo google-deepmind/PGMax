@@ -35,7 +35,7 @@ sys.path.append(os.path.abspath("../.."))
 
 project = "PGMax"
 author = (
-    "Guangyao Zhou, Nishanth Kumar, Antoine Dedieu, Miguel Lazaro-Gredilla,"
+    "Guangyao Zhou, Antoine Dedieu, Nishanth Kumar, Miguel Lazaro-Gredilla,"
     " Shrinu Kushagra, Dileep George"
 )
 copyright = "2022 Intrinsic Innovation LLC"  # pylint: disable=redefined-builtin
