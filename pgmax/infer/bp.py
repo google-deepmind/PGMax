@@ -238,13 +238,15 @@ def BP(bp_state: BPState, temperature: float = 0.0) -> BeliefPropagation:
         potentials_start, potentials_end = factor_type_to_potentials_range[
             factor_type
         ]
-        ftov_msgs_type = FAC_TO_VAR_UPDATES[factor_type](
-            vtof_msgs=vtof_msgs[msgs_start:msgs_end],
-            log_potentials=log_potentials[potentials_start:potentials_end],
-            temperature=temperature,
-            **inference_arguments[factor_type],
-        )
-        ftov_msgs = ftov_msgs.at[msgs_start:msgs_end].set(ftov_msgs_type)
+        # Do not update the messages for factor types not present in the graph
+        if msgs_start != msgs_end:
+          ftov_msgs_type = FAC_TO_VAR_UPDATES[factor_type](
+              vtof_msgs=vtof_msgs[msgs_start:msgs_end],
+              log_potentials=log_potentials[potentials_start:potentials_end],
+              temperature=temperature,
+              **inference_arguments[factor_type],
+          )
+          ftov_msgs = ftov_msgs.at[msgs_start:msgs_end].set(ftov_msgs_type)
 
       # Use the results of message passing to perform damping and
       # update the factor to variable messages

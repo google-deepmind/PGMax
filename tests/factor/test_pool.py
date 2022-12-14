@@ -1,6 +1,6 @@
 # pyformat: mode=midnight
 # ==============================================================================
-# Copyright 2022 Intrinsic Innovation LLC.
+# Copyright 2022 DeepMind Technologies Limited.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,9 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""Test building factor graphs and running inference with AND factors."""
-
-import itertools
+"""Test building factor graphs and running inference with Pool factors."""
 
 import jax
 import numpy as np
@@ -28,38 +26,36 @@ from pgmax import vgroup
 
 
 # pylint: disable=invalid-name
-def test_run_bp_with_ANDFactors():
-  """Test building factor graphs and running inference with AND factors.
+def test_run_bp_with_PoolFactors():
+  """Test building factor graphs and running inference with pool factors.
 
-  In particular, simultaneously test
-  (1) the support of ANDFactors in a FactorGraph and their specialized
+  Simultaneously test
+  (1) the support of PoolFactors in a FactorGraph and their specialized
   inference for different temperatures
   (2) the support of several factor types in a FactorGraph and during
   inference
 
-  To do so, observe that an ANDFactor can be defined as an equivalent
-  EnumFactor (which list all the valid AND configurations)
-  and define two equivalent FactorGraphs:
+  To do so, observe that a PoolFactor can be defined as an equivalent
+  EnumFactor (which list all the valid Pool configurations) and define two
+  equivalent FactorGraphs:
   FG1: first half of factors are defined as EnumFactors, second half are
-  defined as ANDFactors
-  FG2: first half of factors are defined as ANDFactors, second half are
-  defined as EnumFactors
+  defined as PoolFactors
+  FG2: first half of factors are defined as PoolFactors, second half are defined
+  as EnumFactors
 
   Inference for the EnumFactors is run with pass_enum_fac_to_var_messages
-  while inference for the ANDFactors is run with
-  pass_logical_fac_to_var_messages
+  while inference for the PoolFactors is run with pass_pool_fac_to_var_messages.
 
   Note: for the first seed, add all the EnumFactors to FG1 and all the
-      ANDFactors to FG2
+    PoolFactors to FG2
   """
-
   for idx in range(10):
     np.random.seed(idx)
 
     # Parameters
     num_factors = np.random.randint(3, 8)
-    num_parents = np.random.randint(1, 6, num_factors)
-    num_parents_cumsum = np.insert(np.cumsum(num_parents), 0, 0)
+    num_pool_choices = np.random.randint(1, 6, num_factors)
+    num_pool_choices_cumsum = np.insert(np.cumsum(num_pool_choices), 0, 0)
 
     # Setting the temperature
     if idx % 2 == 0:
@@ -69,62 +65,59 @@ def test_run_bp_with_ANDFactors():
       temperature = np.random.uniform(low=0.5, high=1.0)
 
     # Graph 1
-    parents_variables1 = vgroup.NDVarArray(
-        num_states=2, shape=(num_parents.sum(),)
+    pool_indicators_variables1 = vgroup.NDVarArray(
+        num_states=2, shape=(num_factors,)
     )
-    children_variables1 = vgroup.NDVarArray(num_states=2, shape=(num_factors,))
+    pool_choices_variables1 = vgroup.NDVarArray(
+        num_states=2, shape=(num_pool_choices.sum(),)
+    )
     fg1 = fgraph.FactorGraph(
-        variable_groups=[parents_variables1, children_variables1]
+        variable_groups=[pool_indicators_variables1, pool_choices_variables1]
     )
 
     # Graph 2
-    parents_variables2 = vgroup.NDVarArray(
-        num_states=2, shape=(num_parents.sum(),)
+    pool_indicators_variables2 = vgroup.NDVarArray(
+        num_states=2, shape=(num_factors,)
     )
-    children_variables2 = vgroup.NDVarArray(num_states=2, shape=(num_factors,))
+    pool_choices_variables2 = vgroup.NDVarArray(
+        num_states=2, shape=(num_pool_choices.sum(),)
+    )
     fg2 = fgraph.FactorGraph(
-        variable_groups=[parents_variables2, children_variables2]
+        variable_groups=[pool_indicators_variables2, pool_choices_variables2]
     )
 
-    # Option 1: Define EnumFactors equivalent to the ANDFactors
+    # Variable names for factors
     variables_for_factors1 = []
     variables_for_factors2 = []
     for factor_idx in range(num_factors):
       variables1 = []
+      # Pool choices variables must be added first
       for idx1 in range(
-          num_parents_cumsum[factor_idx], num_parents_cumsum[factor_idx + 1]
+          num_pool_choices_cumsum[factor_idx],
+          num_pool_choices_cumsum[factor_idx + 1],
       ):
-        variables1.append(parents_variables1[idx1])
-      variables1 += [children_variables1[factor_idx]]
+        variables1.append(pool_choices_variables1[idx1])
+      variables1.append(pool_indicators_variables1[factor_idx])
       variables_for_factors1.append(variables1)
 
       variables2 = []
       for idx2 in range(
-          num_parents_cumsum[factor_idx], num_parents_cumsum[factor_idx + 1]
+          num_pool_choices_cumsum[factor_idx],
+          num_pool_choices_cumsum[factor_idx + 1],
       ):
-        variables2.append(parents_variables2[idx2])
-      variables2 += [children_variables2[factor_idx]]
+        variables2.append(pool_choices_variables2[idx2])
+      variables2.append(pool_indicators_variables2[factor_idx])
       variables_for_factors2.append(variables2)
 
-    # Option 1: Define EnumFactors equivalent to the ANDFactors
+    # Option 1: Define EnumFactors equivalent to the PoolFactors
     for factor_idx in range(num_factors):
-      this_num_parents = num_parents[factor_idx]
+      this_num_pool_choices = num_pool_choices[factor_idx]
 
-      configs = np.array(
-          list(itertools.product([0, 1], repeat=this_num_parents + 1))
+      valid_configs = np.zeros(
+          (this_num_pool_choices + 1, this_num_pool_choices + 1), dtype=int
       )
-      # Children state is last
-      valid_AND_configs = configs[
-          np.logical_and(
-              configs[:, :-1].sum(axis=1) < this_num_parents,
-              configs[:, -1] == 0,
-          )
-      ]
-      valid_configs = np.concatenate(
-          [np.ones((1, this_num_parents + 1), dtype=int), valid_AND_configs],
-          axis=0,
-      )
-      assert valid_configs.shape[0] == 2**this_num_parents
+      valid_configs[1:, -1] = 1
+      valid_configs[1:, :-1] = np.eye(this_num_pool_choices)
 
       if factor_idx < num_factors // 2:
         # Add the first half of factors to FactorGraph1
@@ -152,48 +145,50 @@ def test_run_bp_with_ANDFactors():
           )
           fg1.add_factors(enum_factor)
 
-    # Option 2: Define the ANDFactors
-    variables_for_ANDFactors_fg1 = []
-    variables_for_ANDFactors_fg2 = []
+    # Option 2: Define the PoolFactors
+    variables_for_PoolFactors_fg1 = []
+    variables_for_PoolFactors_fg2 = []
 
     for factor_idx in range(num_factors):
       if factor_idx < num_factors // 2:
         # Add the first half of factors to FactorGraph2
-        variables_for_ANDFactors_fg2.append(variables_for_factors2[factor_idx])
+        variables_for_PoolFactors_fg2.append(variables_for_factors2[factor_idx])
       else:
         if idx != 0:
           # Add the second half of factors to FactorGraph1
-          variables_for_ANDFactors_fg1.append(
+          variables_for_PoolFactors_fg1.append(
               variables_for_factors1[factor_idx]
           )
         else:
-          # Add all the ANDFactors to FactorGraph2 for the first iter
-          variables_for_ANDFactors_fg2.append(
+          # Add all the PoolFactors to FactorGraph2 for the first iter
+          variables_for_PoolFactors_fg2.append(
               variables_for_factors2[factor_idx]
           )
     if idx != 0:
-      factor_group = fgroup.ANDFactorGroup(variables_for_ANDFactors_fg1)
+      factor_group = fgroup.PoolFactorGroup(variables_for_PoolFactors_fg1)
       fg1.add_factors(factor_group)
 
-    factor_group = fgroup.ANDFactorGroup(variables_for_ANDFactors_fg2)
+    factor_group = fgroup.PoolFactorGroup(variables_for_PoolFactors_fg2)
     fg2.add_factors(factor_group)
 
     # Run inference
     bp1 = infer.BP(fg1.bp_state, temperature=temperature)
     bp2 = infer.BP(fg2.bp_state, temperature=temperature)
 
-    evidence_parents = jax.device_put(
-        np.random.gumbel(size=(sum(num_parents), 2))
+    evidence_pool_indicators = jax.device_put(
+        np.random.gumbel(size=(num_factors, 2))
     )
-    evidence_children = jax.device_put(np.random.gumbel(size=(num_factors, 2)))
+    evidence_pool_choices = jax.device_put(
+        np.random.gumbel(size=(sum(num_pool_choices), 2))
+    )
 
     evidence_updates1 = {
-        parents_variables1: evidence_parents,
-        children_variables1: evidence_children,
+        pool_indicators_variables1: evidence_pool_indicators,
+        pool_choices_variables1: evidence_pool_choices,
     }
     evidence_updates2 = {
-        parents_variables2: evidence_parents,
-        children_variables2: evidence_children,
+        pool_indicators_variables2: evidence_pool_indicators,
+        pool_choices_variables2: evidence_pool_choices,
     }
 
     bp_arrays1 = bp1.init(evidence_updates=evidence_updates1)
@@ -206,8 +201,14 @@ def test_run_bp_with_ANDFactors():
     beliefs2 = bp2.get_beliefs(bp_arrays2)
 
     assert np.allclose(
-        beliefs1[children_variables1], beliefs2[children_variables2], atol=1e-4
+        beliefs1[pool_choices_variables1],
+        beliefs2[pool_choices_variables2],
+        atol=1e-4,
+        rtol=1e-4,
     )
     assert np.allclose(
-        beliefs1[parents_variables1], beliefs2[parents_variables2], atol=1e-4
+        beliefs1[pool_indicators_variables1],
+        beliefs2[pool_indicators_variables2],
+        atol=1e-4,
+        rtol=1e-4,
     )

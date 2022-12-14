@@ -167,16 +167,21 @@ class VarDict(vgroup.VarGroup):
           f" {flat_data.shape}"
       )
 
-    start = 0
-    data = {}
-    for var_name in self.variable_names:
-      if use_num_states:
-        var_idx = self.variable_names.index(var_name)
-        var_num_states = self.num_states[var_idx]
-        data[var_name] = flat_data[start : start + var_num_states]
-        start += var_num_states
+    if use_num_states:
+      # Check whether all the variables have the same number of states
+      if np.all(self.num_states == self.num_states[0]):
+        data = dict(
+            zip(self.variable_names, flat_data.reshape(-1, self.num_states[0]))
+        )
       else:
-        data[var_name] = flat_data[np.array([start])]
-        start += 1
+        var_states_limits = np.insert(np.cumsum(self.num_states), 0, 0)
+        var_states = [
+            flat_data[var_states_limits[idx] : var_states_limits[idx + 1]]
+            for idx in range(self.num_states.shape[0])
+        ]
+        data = dict(zip(self.variable_names, var_states))
+
+    else:
+      data = dict(zip(self.variable_names, flat_data))
 
     return data

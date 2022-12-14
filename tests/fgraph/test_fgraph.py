@@ -35,6 +35,21 @@ def test_factor_graph():
   vg = vgroup.VarDict(variable_names=(0,), num_states=15)
   fg = fgraph.FactorGraph(vg)
 
+  wrong_enum_factor = factor.EnumFactor(
+      variables=[vg[0], vg[0]],
+      factor_configs=np.array([[idx, idx] for idx in range(15)]),
+      log_potentials=np.zeros(15),
+  )
+  with pytest.raises(
+      ValueError,
+      match=re.escape(
+          f"A Factor of type {factor.EnumFactor} involving variables"
+          f" {[(vg.__hash__(), 15), (vg.__hash__(), 15)]} contains variables"
+          " duplicates."
+      ),
+  ):
+    fg.add_factors(wrong_enum_factor)
+
   enum_factor = factor.EnumFactor(
       variables=[vg[0]],
       factor_configs=np.arange(15)[:, None],
@@ -217,6 +232,8 @@ def test_bp():
   bp_arrays = dataclasses.replace(bp_arrays, log_potentials=jnp.zeros((10)))
   bp_state = bp.to_bp_state(bp_arrays)
   assert bp_state.fg_state == fg.fg_state
+  beliefs = bp.get_beliefs(bp_arrays)
+  assert beliefs[vg][0].shape == (15,)
 
 
 def test_bp_different_num_states():

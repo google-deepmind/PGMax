@@ -171,8 +171,8 @@ class NDVarArray(vgroup.VarGroup):
       ].set(flat_data)
     else:
       raise ValueError(
-          f"flat_data should be compatible with shape {self.shape} or"
-          f" {self.shape + (self.num_states.max(),)}. Got {flat_data.shape}."
+          f"flat_data size should be equal to {np.product(self.shape)} or to "
+          f"{self.num_states.sum()}. Got size {flat_data.size}."
       )
 
     return data

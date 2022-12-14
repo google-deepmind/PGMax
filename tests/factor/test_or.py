@@ -45,9 +45,8 @@ def test_run_bp_with_ORFactors():
   FG2: first half of factors are defined as ORFactors, second half are defined
   as EnumFactors
 
-  Inference for the EnumFactors will be run with pass_enum_fac_to_var_messages
-  while inference for the ORFactors will be run with
-  pass_logical_fac_to_var_messages.
+  Inference for the EnumFactors is run with pass_enum_fac_to_var_messages
+  while inference for the ORFactors is run with pass_logical_fac_to_var_messages
 
   Note: for the first seed, add all the EnumFactors to FG1 and all the
     ORFactors to FG2
@@ -149,7 +148,6 @@ def test_run_bp_with_ORFactors():
           fg1.add_factors(enum_factor)
 
     # Option 2: Define the ORFactors
-    num_parents_cumsum = np.insert(np.cumsum(num_parents), 0, 0)
     variables_for_ORFactors_fg1 = []
     variables_for_ORFactors_fg2 = []
 

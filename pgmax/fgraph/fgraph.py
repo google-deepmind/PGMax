@@ -165,6 +165,11 @@ class FactorGraph:
     factor_type = factor_group.factor_type
     for var_names_for_factor in factor_group.variables_for_factors:
       var_names = frozenset(var_names_for_factor)
+      if len(var_names_for_factor) != len(var_names):
+        raise ValueError(
+            f"A Factor of type {factor_type} involving variables"
+            f" {var_names_for_factor} contains variables duplicates."
+        )
       if var_names in self._factor_types_to_variables_for_factors[factor_type]:
         raise ValueError(
             f"A Factor of type {factor_type} involving variables"

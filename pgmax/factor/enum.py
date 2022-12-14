@@ -28,6 +28,7 @@ from pgmax.factor import factor
 from pgmax.utils import NEG_INF
 
 
+# pylint: disable=unexpected-keyword-arg
 @jax.tree_util.register_pytree_node_class
 @dataclasses.dataclass(frozen=True, eq=False)
 class EnumWiring(factor.Wiring):

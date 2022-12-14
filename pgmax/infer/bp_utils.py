@@ -54,11 +54,9 @@ def segment_max_opt(
         )
     )
 
-  start_indices = jnp.concatenate(
-      [
-          jnp.full(shape=(1,), fill_value=int(NEG_INF), dtype=int),
-          jnp.cumsum(segments_lengths),
-      ]
-  )[:-1]
+  start_indices = jnp.concatenate([
+      jnp.zeros(shape=(1,), dtype=int),
+      jnp.cumsum(segments_lengths),
+  ])[:-1]
   expanded_data = jnp.concatenate([data, jnp.zeros(max_segment_length)])
   return get_max(expanded_data, start_indices, segments_lengths)

@@ -14,7 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""Defines LogicalFactorGroup and its two children, ORFactorGroup and ANDFactorGroup."""
+"""Defines LogicalFactorGroup and its two children, ORFactorGroup and ANDFactorGroup.
+"""
 
 import collections
 import dataclasses
@@ -56,10 +57,11 @@ class LogicalFactorGroup(fgroup.FactorGroup):
       A dictionary mapping all possible set of connected variables to different
       factors.
     """
-    variables_to_factors = collections.OrderedDict([(
-        frozenset(variables_for_factor),
-        self.factor_type(variables=variables_for_factor),
-    ) for variables_for_factor in self.variables_for_factors])
+    variables_to_factors = collections.OrderedDict([
+        (frozenset(variables_for_factor),
+         self.factor_type(variables=variables_for_factor))
+        for variables_for_factor in self.variables_for_factors
+    ])
     return variables_to_factors
 
 

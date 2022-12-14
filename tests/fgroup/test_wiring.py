@@ -1,6 +1,7 @@
 # pyformat: mode=midnight
 # ==============================================================================
 # Copyright 2022 Intrinsic Innovation LLC.
+# Copyright 2022 DeepMind Technologies Limited.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -123,12 +124,15 @@ def test_wiring_with_ORFactorGroup():
 
   # FactorGraph with multiple ORFactorGroup
   fg2 = fgraph.FactorGraph(variable_groups=[A, B, C])
-  for idx in range(10):
+  for idx in range(5):
     factor_group = fgroup.ORFactorGroup(
-        variables_for_factors=[[A[idx], B[idx], C[idx]]],
+        variables_for_factors=[
+            [A[2 * idx], B[2 * idx], C[2 * idx]],
+            [A[2 * idx + 1], B[2 * idx + 1], C[2 * idx + 1]]
+        ],
     )
     fg2.add_factors(factor_group)
-  assert len(fg2.factor_groups[factor.ORFactor]) == 10
+  assert len(fg2.factor_groups[factor.ORFactor]) == 5
 
   # FactorGraph with multiple SingleFactorGroup
   fg3 = fgraph.FactorGraph(variable_groups=[A, B, C])
@@ -176,12 +180,15 @@ def test_wiring_with_ANDFactorGroup():
 
   # FactorGraph with multiple ANDFactorGroup
   fg2 = fgraph.FactorGraph(variable_groups=[A, B, C])
-  for idx in range(10):
+  for idx in range(5):
     factor_group = fgroup.ANDFactorGroup(
-        variables_for_factors=[[A[idx], B[idx], C[idx]]],
+        variables_for_factors=[
+            [A[2 * idx], B[2 * idx], C[2 * idx]],
+            [A[2 * idx + 1], B[2 * idx + 1], C[2 * idx + 1]]
+        ],
     )
     fg2.add_factors(factor_group)
-  assert len(fg2.factor_groups[factor.ANDFactor]) == 10
+  assert len(fg2.factor_groups[factor.ANDFactor]) == 5
 
   # FactorGraph with multiple SingleFactorGroup
   fg3 = fgraph.FactorGraph(variable_groups=[A, B, C])
@@ -210,3 +217,67 @@ def test_wiring_with_ANDFactorGroup():
   assert np.all(wiring1.var_states_for_edges == wiring3.var_states_for_edges)
   assert np.all(wiring1.parents_edge_states == wiring3.parents_edge_states)
   assert np.all(wiring1.children_edge_states == wiring3.children_edge_states)
+
+
+def test_wiring_with_PoolFactorGroup():
+  """Test the equivalence of the wiring compiled at the PoolFactorGroup level vs at the individual PoolFactor level.
+  """
+  A = vgroup.NDVarArray(num_states=2, shape=(10,))
+  B = vgroup.NDVarArray(num_states=2, shape=(10,))
+  C = vgroup.NDVarArray(num_states=2, shape=(10,))
+
+  # FactorGraph with a single PoolFactorGroup
+  fg1 = fgraph.FactorGraph(variable_groups=[A, B, C])
+  factor_group = fgroup.PoolFactorGroup(
+      variables_for_factors=[[A[idx], B[idx], C[idx]] for idx in range(10)],
+  )
+  fg1.add_factors(factor_group)
+  assert len(fg1.factor_groups[factor.PoolFactor]) == 1
+
+  # FactorGraph with multiple PoolFactorGroup
+  fg2 = fgraph.FactorGraph(variable_groups=[A, B, C])
+  for idx in range(5):
+    factor_group = fgroup.PoolFactorGroup(
+        variables_for_factors=[
+            [A[2 * idx], B[2 * idx], C[2 * idx]],
+            [A[2 * idx + 1], B[2 * idx + 1], C[2 * idx + 1]]
+        ],
+    )
+    fg2.add_factors(factor_group)
+  assert len(fg2.factor_groups[factor.PoolFactor]) == 5
+
+  # FactorGraph with multiple SingleFactorGroup
+  fg3 = fgraph.FactorGraph(variable_groups=[A, B, C])
+  for idx in range(10):
+    pool_factor = factor.PoolFactor(
+        variables=[A[idx], B[idx], C[idx]],
+    )
+    fg3.add_factors(pool_factor)
+  assert len(fg3.factor_groups[factor.PoolFactor]) == 10
+
+  assert len(fg1.factors) == len(fg2.factors) == len(fg3.factors)
+
+  # Compile wiring via factor_group.compile_wiring
+  wiring1 = fg1.wiring[factor.PoolFactor]
+  wiring2 = fg2.wiring[factor.PoolFactor]
+
+  # Compile wiring via factor.compile_wiring
+  wiring3 = fg3.wiring[factor.PoolFactor]
+
+  assert np.all(wiring1.edges_num_states == wiring2.edges_num_states)
+  assert np.all(wiring1.var_states_for_edges == wiring2.var_states_for_edges)
+  assert np.all(
+      wiring1.pool_indicators_edge_states == wiring2.pool_indicators_edge_states
+  )
+  assert np.all(
+      wiring1.pool_choices_edge_states == wiring2.pool_choices_edge_states
+  )
+
+  assert np.all(wiring1.edges_num_states == wiring3.edges_num_states)
+  assert np.all(wiring1.var_states_for_edges == wiring3.var_states_for_edges)
+  assert np.all(
+      wiring1.pool_indicators_edge_states == wiring3.pool_indicators_edge_states
+  )
+  assert np.all(
+      wiring1.pool_choices_edge_states == wiring3.pool_choices_edge_states
+  )

@@ -30,6 +30,7 @@ from pgmax.factor import factor
 from pgmax.utils import NEG_INF
 
 
+# pylint: disable=unexpected-keyword-arg
 @jax.tree_util.register_pytree_node_class
 @dataclasses.dataclass(frozen=True, eq=False)
 class LogicalWiring(factor.Wiring):
@@ -37,19 +38,21 @@ class LogicalWiring(factor.Wiring):
 
   Attributes:
     parents_edge_states: Array of shape (num_parents, 2)
-        parents_edge_states[ii, 0] contains the global ORFactor index
+        parents_edge_states[ii, 0] contains the global LogicalFactor index
         parents_edge_states[ii, 1] contains the message index of the parent
-        variable's state 0
+        variable's relevant state
 
       Both indices only take into account the LogicalFactors of the same subtype
       (OR/AND) of the FactorGraph
-      The parent variable's state 1 is parents_edge_states[ii, 1] + 1
+      The message index of the parent variable's other state is
+      parents_edge_states[ii, 1] + edge_states_offset
 
     children_edge_states: Array of shape (num_factors,)
       children_edge_states[ii] contains the message index of the child
-      variable's state 0, which takes into account all the LogicalFactors of
-      the same subtype (OR/AND) of the FactorGraph
-      The child variable's state 1 is children_edge_states[ii, 1] + 1
+      variable's relevant state , which takes into account all the
+      LogicalFactors of the same subtype (OR/AND) of the FactorGraph
+      The message index of the child variable's other state is
+      children_edge_states[ii, 1] + edge_states_offset
 
     edge_states_offset: Offset to go from a variable's relevant state to its
       other state
@@ -122,7 +125,7 @@ class LogicalFactor(factor.Factor):
       )
 
     if not np.all([variable[1] == 2 for variable in self.variables]):
-      raise ValueError("All variables should all be binary")
+      raise ValueError("All the variables in a LogicalFactor should be binary")
 
   @staticmethod
   def concatenate_wirings(wirings: Sequence[LogicalWiring]) -> LogicalWiring:
@@ -143,6 +146,16 @@ class LogicalFactor(factor.Factor):
           edge_states_offset=1,
       )
 
+    # Factors indices offsets
+    num_factors_cumsum = np.insert(
+        np.array(
+            [wiring.parents_edge_states[-1, 0] + 1 for wiring in wirings]
+        ).cumsum(),
+        0,
+        0,
+    )[:-1]
+
+    # Messages offsets
     # Note: this is all the factor_to_msgs_starts for the LogicalFactors
     num_edge_states_cumsum = np.insert(
         np.array(
@@ -153,8 +166,11 @@ class LogicalFactor(factor.Factor):
     )[:-1]
     parents_edge_states = []
     children_edge_states = []
+
     for ww, or_wiring in enumerate(wirings):
-      offsets = np.array([[ww, num_edge_states_cumsum[ww]]], dtype=int)
+      offsets = np.array(
+          [[num_factors_cumsum[ww], num_edge_states_cumsum[ww]]], dtype=int
+      )
       parents_edge_states.append(or_wiring.parents_edge_states + offsets)
       children_edge_states.append(
           or_wiring.children_edge_states + offsets[:, 1]
@@ -339,7 +355,11 @@ def get_maxes_and_argmaxes(
   )
 
   argmaxes = (
-      jnp.full(shape=(num_labels,), fill_value=NEG_INF, dtype=jnp.int32)
+      jnp.full(
+          shape=(num_labels,),
+          fill_value=jnp.iinfo(jnp.int32).min,
+          dtype=jnp.int32,
+      )
       .at[labels]
       .max(only_maxes_pos)
   )
@@ -363,19 +383,21 @@ def pass_logical_fac_to_var_messages(
       flattened variable to all the LogicalFactors messages.
 
     parents_edge_states: Array of shape (num_parents, 2)
-        parents_edge_states[ii, 0] contains the global ORFactor index
+        parents_edge_states[ii, 0] contains the global LogicalFactor index
         parents_edge_states[ii, 1] contains the message index of the parent
-        variable's state 0
+        variable's relevant state
 
       Both indices only take into account the LogicalFactors of the same subtype
       (OR/AND) of the FactorGraph
-      The parent variable's state 1 is parents_edge_states[ii, 1] + 1
+      The message index of the parent variable's other state is
+      parents_edge_states[ii, 1] + edge_states_offset
 
     children_edge_states: Array of shape (num_factors,)
       children_edge_states[ii] contains the message index of the child
-      variable's state 0, which takes into account all the LogicalFactors of
-      the same subtype (OR/AND) of the FactorGraph
-      The child variable's state 1 is children_edge_states[ii, 1] + 1
+      variable's relevant state , which takes into account all the
+      LogicalFactors of the same subtype (OR/AND) of the FactorGraph
+      The message index of the child variable's other state is
+      children_edge_states[ii, 1] + edge_states_offset
 
     edge_states_offset: Offset to go from a variable's relevant state to its
       other state

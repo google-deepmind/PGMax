@@ -144,8 +144,7 @@ def test_nd_variable_array():
   with pytest.raises(
       ValueError,
       match=re.escape(
-          "flat_data should be compatible with shape (2, 2) or (2, 2, 4). Got"
-          " (12,)."
+          "flat_data size should be equal to 4 or to 10. Got size 12."
       ),
   ):
     variable_group.unflatten(np.zeros((12,)))
