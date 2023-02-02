@@ -51,11 +51,11 @@ just generally make the installation process easier.
 ```
 git clone https://github.com/deepmind/PGMax.git
 cd PGMax
-python -m venv pgmax_env
+python3 -m venv pgmax_env
 source pgmax_env/bin/activate
 pip install --upgrade pip setuptools
 pip install -r requirements.txt
-python setup.py develop
+python3 setup.py develop
 ```
 
 ### Install on GPU

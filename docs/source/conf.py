@@ -38,7 +38,7 @@ author = (
     "Guangyao Zhou, Antoine Dedieu, Nishanth Kumar, Miguel Lazaro-Gredilla,"
     " Shrinu Kushagra, Dileep George"
 )
-copyright = "2022 Intrinsic Innovation LLC"  # pylint: disable=redefined-builtin
+copyright = "2022 Intrinsic Innovation LLC, 2022 DeepMind Technologies Limited"  # pylint: disable=redefined-builtin
 
 # -- General configuration ---------------------------------------------------
 
