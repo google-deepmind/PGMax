@@ -1,5 +1,3 @@
-# pyformat: mode=midnight
-# ==============================================================================
 # Copyright 2022 Intrinsic Innovation LLC.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# ==============================================================================
+
 """A module containing the core message-passing functions for belief propagation."""
 
 import dataclasses
@@ -66,7 +64,7 @@ class BeliefPropagation:
         bp_arrays: Initial arrays of log_potentials, ftov_msgs, evidence.
         num_iters: Number of belief propagation iterations.
         damping: The damping factor to use for message updates between one
-        timestep and the next.
+          timestep and the next.
 
       Returns:
         A BPArrays containing the updated ftov_msgs.
@@ -256,7 +254,13 @@ def BP(bp_state: BPState, temperature: float = 0.0) -> BeliefPropagation:
       msgs = normalize_and_clip_msgs(msgs, edges_num_states, max_msg_size)
       return msgs, None
 
-    ftov_msgs, _ = jax.lax.scan(update, ftov_msgs, None, num_iters)
+    # Scan can have significant overhead for a small number of iterations
+    # if not JITed.  Running one it at a time is a common use-case
+    # for checking convergence, so specialize that case.
+    if num_iters > 1:
+      ftov_msgs, _ = jax.lax.scan(update, ftov_msgs, None, num_iters)
+    else:
+      ftov_msgs, _ = update(ftov_msgs, None)
 
     return BPArrays(
         log_potentials=log_potentials, ftov_msgs=ftov_msgs, evidence=evidence

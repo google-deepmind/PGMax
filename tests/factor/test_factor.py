@@ -1,5 +1,3 @@
-# pyformat: mode=midnight
-# ==============================================================================
 # Copyright 2022 Intrinsic Innovation LLC.
 # Copyright 2022 DeepMind Technologies Limited.
 #
@@ -14,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# ==============================================================================
+
 """Test the correct implementation of the different factors."""
 
 import re
@@ -209,5 +207,6 @@ def test_pool_factor():
         edges_num_states=[2, 2],
         var_states_for_edges=None,
         pool_indicators_edge_states=pool_indicators_edge_state,
-        pool_choices_edge_states=pool_choices_edge_states + np.array([[0], [1]])
+        pool_choices_edge_states=pool_choices_edge_states
+        + np.array([[0], [1]]),
     )

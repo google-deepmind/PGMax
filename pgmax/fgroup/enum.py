@@ -1,5 +1,3 @@
-# pyformat style:midnight
-# ==============================================================================
 # Copyright 2022 Intrinsic Innovation LLC.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# ==============================================================================
+
 """Defines EnumFactorGroup and PairwiseFactorGroup."""
 
 import collections
@@ -71,12 +69,13 @@ class EnumFactorGroup(fgroup.FactorGroup):
       )
     else:
       if self.log_potentials.shape != (
-          num_val_configs,) and self.log_potentials.shape != (self.num_factors,
-                                                              num_val_configs):
+          num_val_configs,
+      ) and self.log_potentials.shape != (self.num_factors, num_val_configs):
         raise ValueError(
             f"Expected log potentials shape: {(num_val_configs,)} or"
             f" {(self.num_factors, num_val_configs)}. Got"
-            f" {self.log_potentials.shape}.")
+            f" {self.log_potentials.shape}."
+        )
       log_potentials = np.broadcast_to(
           self.log_potentials,
           (self.num_factors, num_val_configs),
@@ -84,12 +83,14 @@ class EnumFactorGroup(fgroup.FactorGroup):
 
     if not np.issubdtype(log_potentials.dtype, np.floating):
       raise ValueError(
-          f"Potentials should be floats. Got {log_potentials.dtype}.")
+          f"Potentials should be floats. Got {log_potentials.dtype}."
+      )
     object.__setattr__(self, "log_potentials", log_potentials)
 
   # pylint: disable=g-complex-comprehension
   def _get_variables_to_factors(
-      self,) -> OrderedDict[FrozenSet[Any], enum.EnumFactor]:
+      self,
+  ) -> OrderedDict[FrozenSet[Any], enum.EnumFactor]:
     """Function that generates a dictionary mapping set of connected variables to factors.
 
     This function is only called on demand when the user requires it.
@@ -98,14 +99,21 @@ class EnumFactorGroup(fgroup.FactorGroup):
       A dictionary mapping all possible set of connected variables to different
       factors.
     """
-    variables_to_factors = collections.OrderedDict([(
-        frozenset(variables_for_factor),
-        enum.EnumFactor(
-            variables=variables_for_factor,
-            factor_configs=self.factor_configs,
-            log_potentials=np.array(self.log_potentials)[ii],
-        ),
-    ) for ii, variables_for_factor in enumerate(self.variables_for_factors)])
+    variables_to_factors = collections.OrderedDict(
+        [
+            (
+                frozenset(variables_for_factor),
+                enum.EnumFactor(
+                    variables=variables_for_factor,
+                    factor_configs=self.factor_configs,
+                    log_potentials=np.array(self.log_potentials)[ii],
+                ),
+            )
+            for ii, variables_for_factor in enumerate(
+                self.variables_for_factors
+            )
+        ]
+    )
     return variables_to_factors
 
   def flatten(self, data: Union[np.ndarray, jnp.ndarray]) -> jnp.ndarray:
@@ -124,14 +132,19 @@ class EnumFactorGroup(fgroup.FactorGroup):
     """
     num_factors = len(self.factors)
     factor_edges_num_states = sum(
-        [variable[1] for variable in self.variables_for_factors[0]])
-    if (data.shape != (num_factors, self.factor_configs.shape[0]) and
-        data.shape != (num_factors, factor_edges_num_states) and data.shape !=
-        (self.factor_configs.shape[0],)):
-      raise ValueError("data should be of shape"
-                       f" {(num_factors, self.factor_configs.shape[0])} or"
-                       f" {(num_factors, factor_edges_num_states)} or"
-                       f" {(self.factor_configs.shape[0],)}. Got {data.shape}.")
+        [variable[1] for variable in self.variables_for_factors[0]]
+    )
+    if (
+        data.shape != (num_factors, self.factor_configs.shape[0])
+        and data.shape != (num_factors, factor_edges_num_states)
+        and data.shape != (self.factor_configs.shape[0],)
+    ):
+      raise ValueError(
+          "data should be of shape"
+          f" {(num_factors, self.factor_configs.shape[0])} or"
+          f" {(num_factors, factor_edges_num_states)} or"
+          f" {(self.factor_configs.shape[0],)}. Got {data.shape}."
+      )
 
     if data.shape == (self.factor_configs.shape[0],):
       flat_data = jnp.tile(data, num_factors)
@@ -162,20 +175,26 @@ class EnumFactorGroup(fgroup.FactorGroup):
     """
     if flat_data.ndim != 1:
       raise ValueError(
-          f"Can only unflatten 1D array. Got a {flat_data.ndim}D array.")
+          f"Can only unflatten 1D array. Got a {flat_data.ndim}D array."
+      )
 
     num_factors = len(self.factors)
     factor_edges_num_states = sum(
-        [variable[1] for variable in self.variables_for_factors[0]])
+        [variable[1] for variable in self.variables_for_factors[0]]
+    )
     if flat_data.size == num_factors * self.factor_configs.shape[0]:
-      data = flat_data.reshape((num_factors, self.factor_configs.shape[0]),)
+      data = flat_data.reshape(
+          (num_factors, self.factor_configs.shape[0]),
+      )
     elif flat_data.size == num_factors * np.sum(factor_edges_num_states):
       data = flat_data.reshape((num_factors, np.sum(factor_edges_num_states)))
     else:
-      raise ValueError("flat_data should be compatible with shape"
-                       f" {(num_factors, self.factor_configs.shape[0])} or"
-                       f" {(num_factors, np.sum(factor_edges_num_states))}. Got"
-                       f" {flat_data.shape}.")
+      raise ValueError(
+          "flat_data should be compatible with shape"
+          f" {(num_factors, self.factor_configs.shape[0])} or"
+          f" {(num_factors, np.sum(factor_edges_num_states))}. Got"
+          f" {flat_data.shape}."
+      )
     return data
 
 
@@ -231,18 +250,23 @@ class PairwiseFactorGroup(fgroup.FactorGroup):
           "log_potential_matrix should be either a 2D array, specifying shared"
           " parameters for all pairwise factors, or 3D array, specifying"
           " parameters for individual pairwise factors. Got a"
-          f" {log_potential_matrix.ndim}D log_potential_matrix array.")
+          f" {log_potential_matrix.ndim}D log_potential_matrix array."
+      )
 
     if not np.issubdtype(log_potential_matrix.dtype, np.floating):
-      raise ValueError("Potential matrix should be floats. Got"
-                       f" {self.log_potential_matrix.dtype}.")
+      raise ValueError(
+          "Potential matrix should be floats. Got"
+          f" {self.log_potential_matrix.dtype}."
+      )
 
     if log_potential_matrix.ndim == 3 and log_potential_matrix.shape[0] != len(
-        self.variables_for_factors):
+        self.variables_for_factors
+    ):
       raise ValueError(
           "Expected log_potential_matrix for"
           f" {len(self.variables_for_factors)} factors. Got"
-          f" log_potential_matrix for {log_potential_matrix.shape[0]} factors.")
+          f" log_potential_matrix for {log_potential_matrix.shape[0]} factors."
+      )
 
     log_potential_shape = log_potential_matrix.shape[-2:]
     for variables_for_factor in self.variables_for_factors:
@@ -250,7 +274,8 @@ class PairwiseFactorGroup(fgroup.FactorGroup):
         raise ValueError(
             "All pairwise factors should connect to exactly 2 variables. Got a"
             f" factor connecting to {len(variables_for_factor)} variables"
-            f" ({variables_for_factor}).")
+            f" ({variables_for_factor})."
+        )
 
       factor_num_configs = (
           variables_for_factor[0][1],
@@ -261,12 +286,17 @@ class PairwiseFactorGroup(fgroup.FactorGroup):
             f"The specified pairwise factor {variables_for_factor} (with"
             f" {factor_num_configs}configurations) does not match the specified"
             " log_potential_matrix (with"
-            f" {log_potential_shape} configurations).")
+            f" {log_potential_shape} configurations)."
+        )
     object.__setattr__(self, "log_potential_matrix", log_potential_matrix)
 
     factor_configs = (
-        np.mgrid[:log_potential_matrix.shape[-2], :log_potential_matrix
-                 .shape[-1]].transpose((1, 2, 0)).reshape((-1, 2)))
+        np.mgrid[
+            : log_potential_matrix.shape[-2], : log_potential_matrix.shape[-1]
+        ]
+        .transpose((1, 2, 0))
+        .reshape((-1, 2))
+    )
     object.__setattr__(self, "factor_configs", factor_configs)
 
     log_potential_matrix = np.broadcast_to(
@@ -283,7 +313,8 @@ class PairwiseFactorGroup(fgroup.FactorGroup):
 
   # pylint: disable=g-complex-comprehension
   def _get_variables_to_factors(
-      self,) -> OrderedDict[FrozenSet[Any], enum.EnumFactor]:
+      self,
+  ) -> OrderedDict[FrozenSet[Any], enum.EnumFactor]:
     """Function that generates a dictionary mapping set of connected variables to factors.
 
     This function is only called on demand when the user requires it.
@@ -291,14 +322,19 @@ class PairwiseFactorGroup(fgroup.FactorGroup):
     Returns:
       A dictionary mapping all possible set of connected variables to factors.
     """
-    variables_to_factors = collections.OrderedDict([(
-        frozenset(variable_for_factor),
-        enum.EnumFactor(
-            variables=variable_for_factor,
-            factor_configs=self.factor_configs,
-            log_potentials=self.log_potentials[ii],
-        ),
-    ) for ii, variable_for_factor in enumerate(self.variables_for_factors)])
+    variables_to_factors = collections.OrderedDict(
+        [
+            (
+                frozenset(variable_for_factor),
+                enum.EnumFactor(
+                    variables=variable_for_factor,
+                    factor_configs=self.factor_configs,
+                    log_potentials=self.log_potentials[ii],
+                ),
+            )
+            for ii, variable_for_factor in enumerate(self.variables_for_factors)
+        ]
+    )
     return variables_to_factors
 
   def flatten(self, data: Union[np.ndarray, jnp.ndarray]) -> jnp.ndarray:
@@ -316,15 +352,18 @@ class PairwiseFactorGroup(fgroup.FactorGroup):
     """
     assert isinstance(self.log_potential_matrix, np.ndarray)
     num_factors = len(self.factors)
-    if (data.shape != (num_factors,) + self.log_potential_matrix.shape[-2:] and
-        data.shape !=
-        (num_factors, np.sum(self.log_potential_matrix.shape[-2:])) and
-        data.shape != self.log_potential_matrix.shape[-2:]):
+    if (
+        data.shape != (num_factors,) + self.log_potential_matrix.shape[-2:]
+        and data.shape
+        != (num_factors, np.sum(self.log_potential_matrix.shape[-2:]))
+        and data.shape != self.log_potential_matrix.shape[-2:]
+    ):
       raise ValueError(
           "data should be of shape"
           f" {(num_factors,) + self.log_potential_matrix.shape[-2:]} or"
           f" {(num_factors, np.sum(self.log_potential_matrix.shape[-2:]))} or"
-          f" {self.log_potential_matrix.shape[-2:]}. Got {data.shape}.")
+          f" {self.log_potential_matrix.shape[-2:]}. Got {data.shape}."
+      )
 
     if data.shape == self.log_potential_matrix.shape[-2:]:
       flat_data = jnp.tile(jax.device_put(data).flatten(), num_factors)
@@ -334,8 +373,8 @@ class PairwiseFactorGroup(fgroup.FactorGroup):
     return flat_data
 
   def unflatten(
-      self, flat_data: Union[np.ndarray,
-                             jnp.ndarray]) -> Union[np.ndarray, jnp.ndarray]:
+      self, flat_data: Union[np.ndarray, jnp.ndarray]
+  ) -> Union[np.ndarray, jnp.ndarray]:
     """Function that recovers meaningful structured data from internal flat data array.
 
     Args:
@@ -355,24 +394,30 @@ class PairwiseFactorGroup(fgroup.FactorGroup):
     """
     if flat_data.ndim != 1:
       raise ValueError(
-          f"Can only unflatten 1D array. Got a {flat_data.ndim}D array.")
+          f"Can only unflatten 1D array. Got a {flat_data.ndim}D array."
+      )
 
     assert isinstance(self.log_potential_matrix, np.ndarray)
     num_factors = len(self.factors)
     if flat_data.size == num_factors * np.product(
-        self.log_potential_matrix.shape[-2:]):
-      data = flat_data.reshape((num_factors,) +
-                               self.log_potential_matrix.shape[-2:])
-    elif flat_data.size == num_factors * np.sum(
-        self.log_potential_matrix.shape[-2:]):
+        self.log_potential_matrix.shape[-2:]
+    ):
       data = flat_data.reshape(
-          (num_factors, np.sum(self.log_potential_matrix.shape[-2:])))
+          (num_factors,) + self.log_potential_matrix.shape[-2:]
+      )
+    elif flat_data.size == num_factors * np.sum(
+        self.log_potential_matrix.shape[-2:]
+    ):
+      data = flat_data.reshape(
+          (num_factors, np.sum(self.log_potential_matrix.shape[-2:]))
+      )
     else:
       raise ValueError(
           "flat_data should be compatible with shape"
           f" {(num_factors,) + self.log_potential_matrix.shape[-2:]} or"
           f" {(num_factors, np.sum(self.log_potential_matrix.shape[-2:]))}. Got"
-          f" {flat_data.shape}.")
+          f" {flat_data.shape}."
+      )
 
     return data
 
@@ -390,6 +435,7 @@ def _compute_log_potentials(
   """
 
   for config_idx in range(factor_configs.shape[0]):
-    aux = log_potential_matrix[:, factor_configs[config_idx, 0],
-                               factor_configs[config_idx, 1]]
+    aux = log_potential_matrix[
+        :, factor_configs[config_idx, 0], factor_configs[config_idx, 1]
+    ]
     log_potentials[:, config_idx] = aux

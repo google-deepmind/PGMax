@@ -1,5 +1,3 @@
-# pyformat: mode=midnight
-# ==============================================================================
 # Copyright 2022 Intrinsic Innovation LLC.
 # Copyright 2022 DeepMind Technologies Limited.
 #
@@ -14,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# ==============================================================================
+
 # pylint: disable=invalid-name
 """Test the equivalence of the wiring compiled in equivalent FactorGraphs."""
 
@@ -29,8 +27,7 @@ import pytest
 
 
 def test_wiring_with_PairwiseFactorGroup():
-  """Test the equivalence of the wiring compiled at the PairwiseFactorGroup level vs at the individual EnumFactor level.
-  """
+  """Test the equivalence of the wiring compiled at the PairwiseFactorGroup level vs at the individual EnumFactor level."""
   A = vgroup.NDVarArray(num_states=2, shape=(10,))
   B = vgroup.NDVarArray(num_states=2, shape=(10,))
 
@@ -108,8 +105,7 @@ def test_wiring_with_PairwiseFactorGroup():
 
 
 def test_wiring_with_ORFactorGroup():
-  """Test the equivalence of the wiring compiled at the ORFactorGroup level vs at the individual ORFactor level.
-  """
+  """Test the equivalence of the wiring compiled at the ORFactorGroup level vs at the individual ORFactor level."""
   A = vgroup.NDVarArray(num_states=2, shape=(10,))
   B = vgroup.NDVarArray(num_states=2, shape=(10,))
   C = vgroup.NDVarArray(num_states=2, shape=(10,))
@@ -128,7 +124,7 @@ def test_wiring_with_ORFactorGroup():
     factor_group = fgroup.ORFactorGroup(
         variables_for_factors=[
             [A[2 * idx], B[2 * idx], C[2 * idx]],
-            [A[2 * idx + 1], B[2 * idx + 1], C[2 * idx + 1]]
+            [A[2 * idx + 1], B[2 * idx + 1], C[2 * idx + 1]],
         ],
     )
     fg2.add_factors(factor_group)
@@ -164,8 +160,7 @@ def test_wiring_with_ORFactorGroup():
 
 
 def test_wiring_with_ANDFactorGroup():
-  """Test the equivalence of the wiring compiled at the ANDFactorGroup level vs at the individual ANDFactor level.
-  """
+  """Test the equivalence of the wiring compiled at the ANDFactorGroup level vs at the individual ANDFactor level."""
   A = vgroup.NDVarArray(num_states=2, shape=(10,))
   B = vgroup.NDVarArray(num_states=2, shape=(10,))
   C = vgroup.NDVarArray(num_states=2, shape=(10,))
@@ -184,7 +179,7 @@ def test_wiring_with_ANDFactorGroup():
     factor_group = fgroup.ANDFactorGroup(
         variables_for_factors=[
             [A[2 * idx], B[2 * idx], C[2 * idx]],
-            [A[2 * idx + 1], B[2 * idx + 1], C[2 * idx + 1]]
+            [A[2 * idx + 1], B[2 * idx + 1], C[2 * idx + 1]],
         ],
     )
     fg2.add_factors(factor_group)
@@ -220,8 +215,7 @@ def test_wiring_with_ANDFactorGroup():
 
 
 def test_wiring_with_PoolFactorGroup():
-  """Test the equivalence of the wiring compiled at the PoolFactorGroup level vs at the individual PoolFactor level.
-  """
+  """Test the equivalence of the wiring compiled at the PoolFactorGroup level vs at the individual PoolFactor level."""
   A = vgroup.NDVarArray(num_states=2, shape=(10,))
   B = vgroup.NDVarArray(num_states=2, shape=(10,))
   C = vgroup.NDVarArray(num_states=2, shape=(10,))
@@ -240,7 +234,7 @@ def test_wiring_with_PoolFactorGroup():
     factor_group = fgroup.PoolFactorGroup(
         variables_for_factors=[
             [A[2 * idx], B[2 * idx], C[2 * idx]],
-            [A[2 * idx + 1], B[2 * idx + 1], C[2 * idx + 1]]
+            [A[2 * idx + 1], B[2 * idx + 1], C[2 * idx + 1]],
         ],
     )
     fg2.add_factors(factor_group)

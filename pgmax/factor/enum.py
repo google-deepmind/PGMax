@@ -1,5 +1,3 @@
-# pyformat: mode=midnight
-# ==============================================================================
 # Copyright 2022 Intrinsic Innovation LLC.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# ==============================================================================
+
 """Defines an enumeration factor."""
 
 import dataclasses
@@ -38,7 +36,6 @@ class EnumWiring(factor.Wiring):
     factor_configs_edge_states: Array of shape (num_factor_configs, 2)
       factor_configs_edge_states[ii] contains a pair of global enumeration
       factor_config and global edge_state indices
-
           factor_configs_edge_states[ii, 0] contains the global EnumFactor
           config index
           factor_configs_edge_states[ii, 1] contains the corresponding global

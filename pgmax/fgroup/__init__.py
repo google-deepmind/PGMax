@@ -1,5 +1,3 @@
-# pyformat: mode=midnight
-# ==============================================================================
 # Copyright 2022 Intrinsic Innovation LLC.
 # Copyright 2022 DeepMind Technologies Limited.
 #
@@ -14,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# ==============================================================================
+
 """A sub-package defining different types of groups of factors."""
 
 from pgmax.fgroup.enum import EnumFactorGroup

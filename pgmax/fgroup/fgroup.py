@@ -1,5 +1,3 @@
-# pyformat style:midnight
-# ==============================================================================
 # Copyright 2022 Intrinsic Innovation LLC.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# ==============================================================================
+
 """A module containing the base classes for factor groups in a factor graph."""
 
 import dataclasses
@@ -44,6 +42,7 @@ class FactorGroup:
   Raises:
       ValueError: if the FactorGroup does not contain a Factor
   """
+
   variables_for_factors: Sequence[List[Tuple[int, int]]]
   factor_configs: np.ndarray = dataclasses.field(init=False)
   log_potentials: np.ndarray = dataclasses.field(
@@ -81,7 +80,8 @@ class FactorGroup:
     variables = frozenset(variables)
     if variables not in self._variables_to_factors:
       raise ValueError(
-          f"The queried factor connected to the set of variables {variables} is not present in the factor group."
+          f"The queried factor connected to the set of variables {variables} is"
+          " not present in the factor group."
       )
     return self._variables_to_factors[variables]
 
@@ -92,10 +92,12 @@ class FactorGroup:
     Returns:
         Array of the different factor sizes.
     """
-    return np.array([
-        len(variables_for_factor)
-        for variables_for_factor in self.variables_for_factors
-    ])
+    return np.array(
+        [
+            len(variables_for_factor)
+            for variables_for_factor in self.variables_for_factors
+        ]
+    )
 
   @cached_property
   def factor_edges_num_states(self) -> np.ndarray:
@@ -141,7 +143,7 @@ class FactorGroup:
   def factors(self) -> Tuple[factor.Factor, ...]:
     """Returns all factors in the factor group.
 
-        This function is only called on demand when the user requires it.
+    This function is only called on demand when the user requires it.
     """
     return tuple(self._variables_to_factors.values())
 
@@ -151,7 +153,8 @@ class FactorGroup:
     return len(self.variables_for_factors)
 
   def _get_variables_to_factors(
-      self,) -> OrderedDict[FrozenSet[Sequence[List[Tuple[int, int]]]], Any]:
+      self,
+  ) -> OrderedDict[FrozenSet[Sequence[List[Tuple[int, int]]]], Any]:
     """Function that generates a dictionary mapping names to factors.
 
     This function is only called on demand when the user requires it.
@@ -160,7 +163,8 @@ class FactorGroup:
       A dictionary mapping all possible names to different factors.
     """
     raise NotImplementedError(
-        "Please subclass the FactorGroup class and override this method")
+        "Please subclass the FactorGroup class and override this method"
+    )
 
   def flatten(self, data: Union[np.ndarray, jnp.ndarray]) -> jnp.ndarray:
     """Function that turns meaningful structured data into a flat data array for internal use.
@@ -172,7 +176,8 @@ class FactorGroup:
       A flat jnp.array for internal use
     """
     raise NotImplementedError(
-        "Please subclass the FactorGroup class and override this method")
+        "Please subclass the FactorGroup class and override this method"
+    )
 
   def unflatten(self, flat_data: Union[np.ndarray, jnp.ndarray]) -> Any:
     """Function that recovers meaningful structured data from internal flat data array.
@@ -184,7 +189,8 @@ class FactorGroup:
       Meaningful structured data.
     """
     raise NotImplementedError(
-        "Please subclass the FactorGroup class and override this method")
+        "Please subclass the FactorGroup class and override this method"
+    )
 
   def compile_wiring(
       self,
@@ -201,14 +207,16 @@ class FactorGroup:
       Wiring for the FactorGroup
     """
     compile_wiring_arguments = inspect.getfullargspec(
-        self.factor_type.compile_wiring).args
+        self.factor_type.compile_wiring
+    ).args
     compile_wiring_arguments.remove("vars_to_starts")
     compile_wiring_arguments = {
         key: getattr(self, key) for key in compile_wiring_arguments
     }
 
     wiring = self.factor_type.compile_wiring(
-        vars_to_starts=vars_to_starts, **compile_wiring_arguments)
+        vars_to_starts=vars_to_starts, **compile_wiring_arguments
+    )
     return wiring
 
 
@@ -230,19 +238,22 @@ class SingleFactorGroup(FactorGroup):
 
     if len(self.variables_for_factors) != 1:
       raise ValueError(
-          f"SingleFactorGroup should only contain one factor. Got {len(self.variables_for_factors)}"
+          "SingleFactorGroup should only contain one factor. Got"
+          f" {len(self.variables_for_factors)}"
       )
 
     object.__setattr__(self, "factor_type", type(self.single_factor))
     compile_wiring_arguments = inspect.getfullargspec(
-        self.factor_type.compile_wiring).args
+        self.factor_type.compile_wiring
+    ).args
     compile_wiring_arguments.remove("vars_to_starts")
     for key in compile_wiring_arguments:
       if not hasattr(self, key):
         object.__setattr__(self, key, getattr(self.single_factor, key))
 
-    object.__setattr__(self, "log_potentials",
-                       getattr(self.single_factor, "log_potentials"))
+    object.__setattr__(
+        self, "log_potentials", getattr(self.single_factor, "log_potentials")
+    )
 
   def _get_variables_to_factors(
       self,
@@ -252,8 +263,9 @@ class SingleFactorGroup(FactorGroup):
     Returns:
       A dictionary mapping all possible names to different factors.
     """
-    return OrderedDict([(frozenset(self.variables_for_factors[0]),
-                         self.single_factor)])
+    return OrderedDict(
+        [(frozenset(self.variables_for_factors[0]), self.single_factor)]
+    )
 
   def flatten(self, data: Union[np.ndarray, jnp.ndarray]) -> jnp.ndarray:
     """Function that turns meaningful structured data into a flat data array for internal use.
@@ -265,7 +277,8 @@ class SingleFactorGroup(FactorGroup):
       A flat jnp.array for internal use
     """
     raise NotImplementedError(
-        "SingleFactorGroup does not support vectorized factor operations.")
+        "SingleFactorGroup does not support vectorized factor operations."
+    )
 
   def unflatten(self, flat_data: Union[np.ndarray, jnp.ndarray]) -> Any:
     """Function that recovers meaningful structured data from internal flat data array.
@@ -277,4 +290,5 @@ class SingleFactorGroup(FactorGroup):
       Meaningful structured data.
     """
     raise NotImplementedError(
-        "SingleFactorGroup does not support vectorized factor operations.")
+        "SingleFactorGroup does not support vectorized factor operations."
+    )

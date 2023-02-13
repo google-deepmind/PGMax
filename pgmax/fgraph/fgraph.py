@@ -1,5 +1,3 @@
-# pyformat: mode=midnight
-# ==============================================================================
 # Copyright 2022 Intrinsic Innovation LLC.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# ==============================================================================
+
 """A module containing the core class to build a factor graph."""
 
 import collections
@@ -205,12 +203,12 @@ class FactorGraph:
       factor_type_num_states_start = factor_num_states_cumsum
       factor_type_num_configs_start = factor_num_configs_cumsum
       for factor_group in factors_groups_by_type:
-        self._factor_group_to_msgs_starts[
-            factor_group
-        ] = factor_num_states_cumsum
-        self._factor_group_to_potentials_starts[
-            factor_group
-        ] = factor_num_configs_cumsum
+        self._factor_group_to_msgs_starts[factor_group] = (
+            factor_num_states_cumsum
+        )
+        self._factor_group_to_potentials_starts[factor_group] = (
+            factor_num_configs_cumsum
+        )
 
         factor_num_states_cumsum += factor_group.factor_edges_num_states.sum()
         factor_num_configs_cumsum += (

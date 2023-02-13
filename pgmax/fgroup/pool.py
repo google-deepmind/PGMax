@@ -1,5 +1,3 @@
-# pyformat style:midnight
-# ==============================================================================
 # Copyright 2022 DeepMind Technologies Limited.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# ==============================================================================
+
 """Defines PoolFactorGroup."""
 
 import collections
@@ -29,6 +27,7 @@ from pgmax.fgroup import fgroup
 @dataclasses.dataclass(frozen=True, eq=False)
 class PoolFactorGroup(fgroup.FactorGroup):
   """Class to represent a group of PoolFactors."""
+
   factor_configs: Optional[np.ndarray] = dataclasses.field(
       init=False,
       default=None,
@@ -40,7 +39,8 @@ class PoolFactorGroup(fgroup.FactorGroup):
 
   # pylint: disable=g-complex-comprehension
   def _get_variables_to_factors(
-      self,) -> OrderedDict[FrozenSet[Any], pool.PoolFactor]:
+      self,
+  ) -> OrderedDict[FrozenSet[Any], pool.PoolFactor]:
     """Function that generates a dictionary mapping set of connected variables to factors.
 
     This function is only called on demand when the user requires it.
@@ -49,8 +49,13 @@ class PoolFactorGroup(fgroup.FactorGroup):
       A dictionary mapping all possible set of connected variables to different
       factors.
     """
-    variables_to_factors = collections.OrderedDict([(
-        frozenset(variables_for_factor),
-        pool.PoolFactor(variables=variables_for_factor)
-    ) for variables_for_factor in self.variables_for_factors])
+    variables_to_factors = collections.OrderedDict(
+        [
+            (
+                frozenset(variables_for_factor),
+                pool.PoolFactor(variables=variables_for_factor),
+            )
+            for variables_for_factor in self.variables_for_factors
+        ]
+    )
     return variables_to_factors
