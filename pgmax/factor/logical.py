@@ -36,9 +36,9 @@ class LogicalWiring(factor.Wiring):
 
   Attributes:
     parents_edge_states: Array of shape (num_parents, 2)
-        parents_edge_states[ii, 0] contains the global LogicalFactor index
-        parents_edge_states[ii, 1] contains the message index of the parent
-        variable's relevant state
+      parents_edge_states[ii, 0] contains the global LogicalFactor index
+      parents_edge_states[ii, 1] contains the message index of the parent
+      variable's relevant state
 
       Both indices only take into account the LogicalFactors of the same subtype
       (OR/AND) of the FactorGraph
@@ -381,9 +381,9 @@ def pass_logical_fac_to_var_messages(
       flattened variable to all the LogicalFactors messages.
 
     parents_edge_states: Array of shape (num_parents, 2)
-        parents_edge_states[ii, 0] contains the global LogicalFactor index
-        parents_edge_states[ii, 1] contains the message index of the parent
-        variable's relevant state
+      parents_edge_states[ii, 0] contains the global LogicalFactor index
+      parents_edge_states[ii, 1] contains the message index of the parent
+      variable's relevant state
 
       Both indices only take into account the LogicalFactors of the same subtype
       (OR/AND) of the FactorGraph

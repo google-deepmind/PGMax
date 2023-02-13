@@ -36,10 +36,10 @@ class EnumWiring(factor.Wiring):
     factor_configs_edge_states: Array of shape (num_factor_configs, 2)
       factor_configs_edge_states[ii] contains a pair of global enumeration
       factor_config and global edge_state indices
-          factor_configs_edge_states[ii, 0] contains the global EnumFactor
-          config index
-          factor_configs_edge_states[ii, 1] contains the corresponding global
-          edge_state index
+      factor_configs_edge_states[ii, 0] contains the global EnumFactor
+      config index
+      factor_configs_edge_states[ii, 1] contains the corresponding global
+      edge_state index
 
       Both indices only take into account the EnumFactors of the FactorGraph
 
@@ -309,11 +309,10 @@ def pass_enum_fac_to_var_messages(
     factor_configs_edge_states: Array of shape (num_factor_configs, 2)
       factor_configs_edge_states[ii] contains a pair of global enumeration
       factor_config and global edge_state indices
-
-          factor_configs_edge_states[ii, 0] contains the global EnumFactor
-          config index
-          factor_configs_edge_states[ii, 1] contains the corresponding global
-          edge_state index
+      factor_configs_edge_states[ii, 0] contains the global EnumFactor
+      config index
+      factor_configs_edge_states[ii, 1] contains the corresponding global
+      edge_state index
 
       Both indices only take into account the EnumFactors of the FactorGraph
 

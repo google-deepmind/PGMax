@@ -64,7 +64,7 @@ class BeliefPropagation:
         bp_arrays: Initial arrays of log_potentials, ftov_msgs, evidence.
         num_iters: Number of belief propagation iterations.
         damping: The damping factor to use for message updates between one
-          timestep and the next.
+        timestep and the next.
 
       Returns:
         A BPArrays containing the updated ftov_msgs.
