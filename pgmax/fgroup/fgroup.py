@@ -251,9 +251,11 @@ class SingleFactorGroup(FactorGroup):
       if not hasattr(self, key):
         object.__setattr__(self, key, getattr(self.single_factor, key))
 
-    object.__setattr__(
-        self, "log_potentials", getattr(self.single_factor, "log_potentials")
-    )
+    single_factor_log_potentials = getattr(self.single_factor, "log_potentials")
+    if single_factor_log_potentials.shape[0] > 0:
+      # Fgroup log potentials is of shape (num_factors, num_configs)
+      single_factor_log_potentials = single_factor_log_potentials[None]
+    object.__setattr__(self, "log_potentials", single_factor_log_potentials)
 
   def _get_variables_to_factors(
       self,

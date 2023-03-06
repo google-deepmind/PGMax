@@ -136,8 +136,10 @@ def test_log_potentials():
   ):
     infer.LogPotentials(fg_state=fg.fg_state, value=np.zeros(15))
 
-  log_potentials = infer.LogPotentials(fg_state=fg.fg_state, value=np.zeros(10))
-  assert jnp.all(log_potentials[factor_group] == jnp.zeros(10))
+  log_potentials = infer.LogPotentials(
+      fg_state=fg.fg_state, value=np.zeros((10,))
+  )
+  assert jnp.all(log_potentials[factor_group] == jnp.zeros((10,)))
 
 
 def test_ftov_msgs():
@@ -159,8 +161,8 @@ def test_ftov_msgs():
   with pytest.raises(
       ValueError,
       match=re.escape(
-          "Given belief shape (10,) does not match expected shape (15,) for"
-          f" variable ({vg.__hash__()}, 15)."
+          f"Expected ftov_msgs shape (15,) for variable ({vg.__hash__()}, 15)."
+          " Got incompatible shape (10,)."
       ),
   ):
     fg.bp_state.ftov_msgs[vg[0]] = np.ones(10)
@@ -179,21 +181,45 @@ def test_ftov_msgs():
 
 def test_evidence():
   """Test the correct implementation of evidence."""
-  vg = vgroup.VarDict(variable_names=(0,), num_states=15)
+  vg = vgroup.VarDict(variable_names=(0, 1), num_states=15)
   fg = fgraph.FactorGraph(vg)
   factor_group = fgroup.EnumFactorGroup(
-      variables_for_factors=[[vg[0]]],
-      factor_configs=np.arange(10)[:, None],
+      variables_for_factors=[[vg[0], vg[1]]],
+      factor_configs=np.arange(10)[:, None] + np.zeros((1, 2)),
   )
   fg.add_factors(factor_group)
+  evidence = infer.Evidence(
+      fg_state=fg.fg_state,
+      value=np.zeros((30,)),
+  )
+  assert jnp.all(evidence.value == jnp.zeros((30,)))
 
   with pytest.raises(
-      ValueError, match=re.escape("Expected evidence shape (15,). Got (10,).")
+      ValueError, match=re.escape("Expected evidence shape (30,). Got (20,).")
   ):
-    infer.Evidence(fg_state=fg.fg_state, value=np.zeros(10))
+    infer.Evidence(
+        fg_state=fg.fg_state,
+        value=np.zeros(20,)
+    )
 
-  evidence = infer.Evidence(fg_state=fg.fg_state, value=np.zeros(15))
-  assert jnp.all(evidence.value == jnp.zeros(15))
+  with pytest.raises(
+      ValueError,
+      match=re.escape(
+          f"Expected evidence shape (15,) for variable {vg[0]}."
+          " Got incompatible shape (10,)."
+      ),
+  ):
+    infer.bp_state.update_evidence(
+        jax.device_put(evidence.value),
+        {
+            vg[0]: jax.device_put(
+                np.zeros(
+                    10,
+                )
+            )
+        },
+        fg.fg_state,
+    )
 
   vg2 = vgroup.VarDict(variable_names=(0,), num_states=15)
   with pytest.raises(
@@ -223,11 +249,10 @@ def test_bp():
   bp_arrays = bp.update()
   bp_arrays = bp.update(
       bp_arrays=bp_arrays,
-      ftov_msgs_updates={vg[0]: np.zeros(15)},
       log_potentials_updates={factor_group: np.ones(10)},
   )
   bp_arrays = bp.run_bp(bp_arrays, num_iters=1)
-  bp_arrays = dataclasses.replace(bp_arrays, log_potentials=jnp.zeros((10)))
+  bp_arrays = dataclasses.replace(bp_arrays, log_potentials=jnp.zeros((10,)))
   bp_state = bp.to_bp_state(bp_arrays)
   assert bp_state.fg_state == fg.fg_state
   beliefs = bp.get_beliefs(bp_arrays)

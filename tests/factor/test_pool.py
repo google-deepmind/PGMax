@@ -1,4 +1,4 @@
-# Copyright 2022 DeepMind Technologies Limited.
+# Copyright 2023 DeepMind Technologies Limited.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@ def test_run_bp_with_PoolFactors():
   inference for different temperatures
   (2) the support of several factor types in a FactorGraph and during
   inference
+  (3) the computation of the energy in standard and debug mode
 
   To do so, observe that a PoolFactor can be defined as an equivalent
   EnumFactor (which list all the valid Pool configurations) and define two
@@ -51,8 +52,8 @@ def test_run_bp_with_PoolFactors():
     np.random.seed(idx)
 
     # Parameters
-    num_factors = np.random.randint(3, 8)
-    num_pool_choices = np.random.randint(1, 6, num_factors)
+    num_factors = np.random.randint(5, 10)
+    num_pool_choices = np.random.randint(1, 10, num_factors)
     num_pool_choices_cumsum = np.insert(np.cumsum(num_pool_choices), 0, 0)
 
     # Setting the temperature
@@ -62,6 +63,8 @@ def test_run_bp_with_PoolFactors():
     else:
       temperature = np.random.uniform(low=0.5, high=1.0)
 
+    # We create different variables for the 2 FactorGraphs even if
+    # we could use the same variables for both graphs
     # Graph 1
     pool_indicators_variables1 = vgroup.NDVarArray(
         num_states=2, shape=(num_factors,)
@@ -189,9 +192,28 @@ def test_run_bp_with_PoolFactors():
         pool_choices_variables2: evidence_pool_choices,
     }
 
-    bp_arrays1 = bp1.init(evidence_updates=evidence_updates1)
+    # Randomly initialize the messages
+    ftov_msgs_updates1 = {}
+    ftov_msgs_updates2 = {}
+
+    for idx in range(num_factors):
+      ftov = np.random.normal(size=(2,))
+      ftov_msgs_updates1[pool_indicators_variables1[idx]] = ftov
+      ftov_msgs_updates2[pool_indicators_variables2[idx]] = ftov
+
+    for idx in range(num_pool_choices_cumsum[-1]):
+      ftov = np.random.normal(size=(2,))
+      ftov_msgs_updates1[pool_choices_variables1[idx]] = ftov
+      ftov_msgs_updates2[pool_choices_variables2[idx]] = ftov
+
+    # Run BP
+    bp_arrays1 = bp1.init(
+        evidence_updates=evidence_updates1, ftov_msgs_updates=ftov_msgs_updates1
+    )
     bp_arrays1 = bp1.run_bp(bp_arrays1, num_iters=5)
-    bp_arrays2 = bp2.init(evidence_updates=evidence_updates2)
+    bp_arrays2 = bp2.init(
+        evidence_updates=evidence_updates2, ftov_msgs_updates=ftov_msgs_updates2
+    )
     bp_arrays2 = bp2.run_bp(bp_arrays2, num_iters=5)
 
     # Get beliefs
@@ -201,12 +223,54 @@ def test_run_bp_with_PoolFactors():
     assert np.allclose(
         beliefs1[pool_choices_variables1],
         beliefs2[pool_choices_variables2],
-        atol=1e-4,
-        rtol=1e-4,
+        atol=5e-6,
     )
     assert np.allclose(
         beliefs1[pool_indicators_variables1],
         beliefs2[pool_indicators_variables2],
-        atol=1e-4,
-        rtol=1e-4,
+        atol=5e-6,
     )
+
+    # Get the map states and compare their energies
+    map_states1 = infer.bp.decode_map_states(beliefs1)
+    map_states2 = infer.bp.decode_map_states(beliefs2)
+
+    energy_decoding1 = infer.compute_energy(
+        fg1.bp_state, bp_arrays1, map_states1
+    )[0]
+    energy_decoding2 = infer.compute_energy(
+        fg2.bp_state, bp_arrays2, map_states2
+    )[0]
+    energy_decoding1_debug, var_energies1, factor_energies1 = (
+        infer.compute_energy(
+            fg1.bp_state, bp_arrays1, map_states1, debug_mode=True
+        )
+    )
+    energy_decoding2_debug, var_energies2, factor_energies2 = (
+        infer.compute_energy(
+            fg2.bp_state, bp_arrays2, map_states2, debug_mode=True
+        )
+    )
+    assert np.allclose(energy_decoding1, energy_decoding2, atol=5e-6)
+    assert np.allclose(energy_decoding1, energy_decoding1_debug, atol=5e-6)
+    assert np.allclose(energy_decoding2, energy_decoding2_debug, atol=5e-6)
+
+    # Also compare the energy of all the individual variables and factors
+    for child_idx in range(num_factors):
+      var_energy1 = var_energies1[pool_indicators_variables1[child_idx]]
+      var_energy2 = var_energies2[pool_indicators_variables2[child_idx]]
+      assert np.allclose(var_energy1, var_energy2, atol=5e-6)
+
+    for parent_idx in range(num_pool_choices_cumsum[-1]):
+      var_energy1 = var_energies1[pool_choices_variables1[parent_idx]]
+      var_energy2 = var_energies2[pool_choices_variables2[parent_idx]]
+      assert np.allclose(var_energy1, var_energy2, atol=5e-6)
+
+    for factor_idx in range(num_factors):
+      factor_energy1 = factor_energies1[
+          frozenset(variables_for_factors1[factor_idx])
+      ]
+      factor_energy2 = factor_energies2[
+          frozenset(variables_for_factors2[factor_idx])
+      ]
+      assert np.allclose(factor_energy1, factor_energy2, rtol=5e-6)

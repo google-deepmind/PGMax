@@ -20,5 +20,6 @@ from pgmax.fgroup.enum import PairwiseFactorGroup
 from pgmax.fgroup.fgroup import FactorGroup
 from pgmax.fgroup.fgroup import SingleFactorGroup
 from pgmax.fgroup.logical import ANDFactorGroup
+from pgmax.fgroup.logical import LogicalFactorGroup
 from pgmax.fgroup.logical import ORFactorGroup
 from pgmax.fgroup.pool import PoolFactorGroup

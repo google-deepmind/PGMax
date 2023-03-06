@@ -89,6 +89,16 @@ def test_enumeration_factor():
         log_potentials=np.array([0.0]),
     )
 
+  with pytest.raises(
+      ValueError, match="list_var_states_for_edges cannot be None"
+  ):
+    factor.concatenate_var_states_for_edges(None)
+
+  with pytest.raises(
+      ValueError, match="var_states_for_edges cannot be None"
+  ):
+    factor.concatenate_var_states_for_edges([None])
+
 
 def test_logical_factor():
   """Test the correct implementation of the logical factors."""
@@ -124,7 +134,6 @@ def test_logical_factor():
       ValueError, match="The highest LogicalFactor index must be 0"
   ):
     factor.logical.LogicalWiring(
-        edges_num_states=[2, 2],
         var_states_for_edges=None,
         parents_edge_states=parents_edge_states + np.array([[1, 0]]),
         children_edge_states=child_edge_state,
@@ -136,7 +145,6 @@ def test_logical_factor():
       match="The LogicalWiring must have 1 different LogicalFactor indices",
   ):
     factor.logical.LogicalWiring(
-        edges_num_states=[2, 2],
         var_states_for_edges=None,
         parents_edge_states=parents_edge_states + np.array([[0], [1]]),
         children_edge_states=child_edge_state,
@@ -151,7 +159,6 @@ def test_logical_factor():
       ),
   ):
     factor.logical.LogicalWiring(
-        edges_num_states=[2, 2],
         var_states_for_edges=None,
         parents_edge_states=parents_edge_states,
         children_edge_states=child_edge_state,
@@ -193,7 +200,6 @@ def test_pool_factor():
       ValueError, match="The highest PoolFactor index must be 0"
   ):
     factor.pool.PoolWiring(
-        edges_num_states=[2, 2],
         var_states_for_edges=None,
         pool_choices_edge_states=pool_choices_edge_states + np.array([[1, 0]]),
         pool_indicators_edge_states=pool_indicators_edge_state,
@@ -204,7 +210,6 @@ def test_pool_factor():
       match="The PoolWiring must have 1 different PoolFactor indices",
   ):
     factor.pool.PoolWiring(
-        edges_num_states=[2, 2],
         var_states_for_edges=None,
         pool_indicators_edge_states=pool_indicators_edge_state,
         pool_choices_edge_states=pool_choices_edge_states

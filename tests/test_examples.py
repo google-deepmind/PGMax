@@ -51,5 +51,12 @@ def test_ising_model():
   )
   bp_arrays = bp.run_bp(bp_arrays, num_iters=3000)
   beliefs = bp.get_beliefs(bp_arrays)
-  img = infer.decode_map_states(beliefs)[variables]
-  assert img.shape == (50, 50)
+  map_states = infer.decode_map_states(beliefs)
+  assert map_states[variables].shape == (50, 50)
+
+  # Compute the energy of the decoding with and without debug mode
+  decoding_energy = infer.compute_energy(fg.bp_state, bp_arrays, map_states)[0]
+  decoding_energy_debug = infer.compute_energy(
+      fg.bp_state, bp_arrays, map_states, debug_mode=True
+  )[0]
+  assert np.allclose(decoding_energy, decoding_energy_debug, atol=5e-6)

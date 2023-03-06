@@ -1,4 +1,5 @@
 # Copyright 2022 Intrinsic Innovation LLC.
+# Copyright 2023 DeepMind Technologies Limited.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,6 +15,7 @@
 
 """A sub-package containing functions to perform belief propagation."""
 
+from pgmax.infer.bp import BeliefPropagation
 from pgmax.infer.bp import BP
 from pgmax.infer.bp import decode_map_states
 from pgmax.infer.bp import get_marginals
@@ -22,3 +24,4 @@ from pgmax.infer.bp_state import BPState
 from pgmax.infer.bp_state import Evidence
 from pgmax.infer.bp_state import FToVMessages
 from pgmax.infer.bp_state import LogPotentials
+from pgmax.infer.energy import compute_energy

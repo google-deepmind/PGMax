@@ -114,6 +114,7 @@ def test_nd_variable_array():
   variable_group = vgroup.NDVarArray(
       shape=(2, 2), num_states=np.array([[1, 2], [3, 4]])
   )
+  print(variable_group)
 
   if variable_group0 < variable_group:
     pass

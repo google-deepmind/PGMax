@@ -23,11 +23,16 @@ from pgmax.factor import enum
 from pgmax.factor import logical
 from pgmax.factor import pool
 from pgmax.factor.enum import EnumFactor
+from pgmax.factor.enum import EnumWiring
+from pgmax.factor.factor import concatenate_var_states_for_edges
 from pgmax.factor.factor import Factor
 from pgmax.factor.factor import Wiring
 from pgmax.factor.logical import ANDFactor
+from pgmax.factor.logical import LogicalFactor
+from pgmax.factor.logical import LogicalWiring
 from pgmax.factor.logical import ORFactor
 from pgmax.factor.pool import PoolFactor
+from pgmax.factor.pool import PoolWiring
 
 FAC_TO_VAR_UPDATES: OrderedDict[Type[Factor], Callable[..., jnp.ndarray]] = (
     collections.OrderedDict([

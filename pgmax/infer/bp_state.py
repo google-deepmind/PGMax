@@ -1,4 +1,5 @@
 # Copyright 2022 Intrinsic Innovation LLC.
+# Copyright 2022 DeepMind Technologies Limited.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -86,8 +87,8 @@ def update_log_potentials(
       if flat_data.shape != factor_group.factor_group_log_potentials.shape:
         raise ValueError(
             "Expected log potentials shape"
-            f" {factor_group.factor_group_log_potentials.shape} for factor"
-            f" group. Got incompatible data shape {data.shape}."
+            f" {factor_group.factor_group_log_potentials.shape} for"
+            f" factor group. Got incompatible data shape {data.shape}."
         )
 
       start = fg_state.factor_group_to_potentials_starts[factor_group]
@@ -123,7 +124,6 @@ class LogPotentials:
             "Expected log potentials shape"
             f" {self.fg_state.log_potentials.shape}. Got {self.value.shape}."
         )
-
       object.__setattr__(self, "value", self.value)
 
   def __getitem__(self, factor_group: fgroup.FactorGroup) -> np.ndarray:
@@ -198,19 +198,19 @@ def update_ftov_msgs(
     if variable in fg_state.vars_to_starts:
       if data.shape != (variable[1],):
         raise ValueError(
-            f"Given belief shape {data.shape} does not match expected "
-            f"shape {(variable[1],)} for variable {variable}."
+            f"Expected ftov_msgs shape {(variable[1],)} for variable "
+            f"{variable}. Got incompatible shape {data.shape}."
         )
 
-      var_states_for_edges = np.concatenate(
+      var_states_for_edge_states = np.concatenate(
           [
-              wiring_by_type.var_states_for_edges
+              wiring_by_type.var_states_for_edges[..., 0]
               for wiring_by_type in fg_state.wiring.values()
           ]
       )
 
       starts = np.nonzero(
-          var_states_for_edges == fg_state.vars_to_starts[variable]
+          var_states_for_edge_states == fg_state.vars_to_starts[variable]
       )[0]
       for start in starts:
         ftov_msgs = ftov_msgs.at[start : start + variable[1]].set(
@@ -282,15 +282,20 @@ def update_evidence(
     updates: Dict[Any, jnp.ndarray],
     fg_state: fgraph.FactorGraphState,
 ) -> jnp.ndarray:
-  """Function to update evidence.
+  """Function to update the evidence of a set of variables or VarGroups.
 
   Args:
     evidence: A flat jnp array containing evidence.
-    updates: A dictionary containing updates for evidence
+    updates: A dictionary mapping variables or VarGroups to their updated
+      evidence values.
     fg_state: Factor graph state
 
   Returns:
-    A flat jnp array containing updated evidence.
+    A flat jnp array containing the updated evidence values.
+
+  Raises: ValueError if
+    (1) The provided evidence shape does not match the expected one
+    (2) The provided variable or VarGroup is not in the Factorgraph
   """
   # Clip updates to not have infinite values
   updates = jax.tree_util.tree_map(
@@ -300,14 +305,22 @@ def update_evidence(
   for name, data in updates.items():
     # Name is a variable_group or a variable
     if name in fg_state.variable_groups:
+      # The evidence will only be flattened if it is of the expected size
+      flat_data = name.flatten(data)
+
       first_variable = name.variables[0]
       start_index = fg_state.vars_to_starts[first_variable]
-      flat_data = name.flatten(data)
       evidence = evidence.at[
           start_index : start_index + flat_data.shape[0]
       ].set(flat_data)
     elif name in fg_state.vars_to_starts:
       start_index = fg_state.vars_to_starts[name]
+      var_num_states = name[1]
+      if data.shape != (var_num_states,):
+        raise ValueError(
+            f"Expected evidence shape {(var_num_states,)} for variable {name}."
+            f" Got incompatible shape {data.shape}."
+        )
       evidence = evidence.at[start_index : start_index + name[1]].set(data)
     else:
       raise ValueError(
@@ -331,15 +344,14 @@ class Evidence:
 
   def __post_init__(self):
     if self.value is None:
-      object.__setattr__(self, "value", np.zeros(self.fg_state.num_var_states))
+      value = np.zeros((self.fg_state.num_var_states,))
+      object.__setattr__(self, "value", value)
     else:
       if self.value.shape != (self.fg_state.num_var_states,):
         raise ValueError(
             f"Expected evidence shape {(self.fg_state.num_var_states,)}. "
             f"Got {self.value.shape}."
         )
-
-      object.__setattr__(self, "value", self.value)
 
   def __getitem__(self, variable: Tuple[int, int]) -> np.ndarray:
     """Function to query evidence for a variable.

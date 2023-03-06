@@ -91,13 +91,11 @@ def test_wiring_with_PairwiseFactorGroup():
   # Compile wiring via factor.compile_wiring
   wiring3 = fg3.wiring[factor.EnumFactor]
 
-  assert np.all(wiring1.edges_num_states == wiring2.edges_num_states)
   assert np.all(wiring1.var_states_for_edges == wiring2.var_states_for_edges)
   assert np.all(
       wiring1.factor_configs_edge_states == wiring2.factor_configs_edge_states
   )
 
-  assert np.all(wiring1.edges_num_states == wiring3.edges_num_states)
   assert np.all(wiring1.var_states_for_edges == wiring3.var_states_for_edges)
   assert np.all(
       wiring1.factor_configs_edge_states == wiring3.factor_configs_edge_states
@@ -148,12 +146,10 @@ def test_wiring_with_ORFactorGroup():
   # Compile wiring via factor.compile_wiring
   wiring3 = fg3.wiring[factor.ORFactor]
 
-  assert np.all(wiring1.edges_num_states == wiring2.edges_num_states)
   assert np.all(wiring1.var_states_for_edges == wiring2.var_states_for_edges)
   assert np.all(wiring1.parents_edge_states == wiring2.parents_edge_states)
   assert np.all(wiring1.children_edge_states == wiring2.children_edge_states)
 
-  assert np.all(wiring1.edges_num_states == wiring3.edges_num_states)
   assert np.all(wiring1.var_states_for_edges == wiring3.var_states_for_edges)
   assert np.all(wiring1.parents_edge_states == wiring3.parents_edge_states)
   assert np.all(wiring1.children_edge_states == wiring3.children_edge_states)
@@ -203,12 +199,10 @@ def test_wiring_with_ANDFactorGroup():
   # Compile wiring via factor.compile_wiring
   wiring3 = fg3.wiring[factor.ANDFactor]
 
-  assert np.all(wiring1.edges_num_states == wiring2.edges_num_states)
   assert np.all(wiring1.var_states_for_edges == wiring2.var_states_for_edges)
   assert np.all(wiring1.parents_edge_states == wiring2.parents_edge_states)
   assert np.all(wiring1.children_edge_states == wiring2.children_edge_states)
 
-  assert np.all(wiring1.edges_num_states == wiring3.edges_num_states)
   assert np.all(wiring1.var_states_for_edges == wiring3.var_states_for_edges)
   assert np.all(wiring1.parents_edge_states == wiring3.parents_edge_states)
   assert np.all(wiring1.children_edge_states == wiring3.children_edge_states)
@@ -258,7 +252,6 @@ def test_wiring_with_PoolFactorGroup():
   # Compile wiring via factor.compile_wiring
   wiring3 = fg3.wiring[factor.PoolFactor]
 
-  assert np.all(wiring1.edges_num_states == wiring2.edges_num_states)
   assert np.all(wiring1.var_states_for_edges == wiring2.var_states_for_edges)
   assert np.all(
       wiring1.pool_indicators_edge_states == wiring2.pool_indicators_edge_states
@@ -267,7 +260,6 @@ def test_wiring_with_PoolFactorGroup():
       wiring1.pool_choices_edge_states == wiring2.pool_choices_edge_states
   )
 
-  assert np.all(wiring1.edges_num_states == wiring3.edges_num_states)
   assert np.all(wiring1.var_states_for_edges == wiring3.var_states_for_edges)
   assert np.all(
       wiring1.pool_indicators_edge_states == wiring3.pool_indicators_edge_states

@@ -68,6 +68,20 @@ class NDVarArray(vgroup.VarGroup):
           "num_states should be an integer or a NumPy array of dtype int"
       )
 
+  def __repr__(self) -> str:
+    assert isinstance(self.num_states, np.ndarray)
+
+    obj = self.__dict__.copy()
+    min_num_states = self.num_states.min()
+    max_num_states = self.num_states.max()
+    if min_num_states == max_num_states:
+      obj["num_states"] = f"Array containing only {min_num_states}s"
+    else:
+      obj["num_states"] = (
+          f"Array of integers between {min_num_states} and {max_num_states}"
+      )
+    return obj.__repr__()
+
   def __getitem__(
       self, val: Union[int, slice, Tuple[Union[int, slice], ...]]
   ) -> Union[Tuple[int, int], List[Tuple[int, int]]]:

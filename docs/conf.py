@@ -1,4 +1,5 @@
 # Copyright 2022 Intrinsic Innovation LLC.
+# Copyright 2023 DeepMind Technologies Limited.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,17 +19,6 @@
 # list see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
-# -- Path setup --------------------------------------------------------------
-
-# If extensions (or modules to document with autodoc) are in another directory,
-# add these directories to sys.path here. If the directory is relative to the
-# documentation root, use os.path.abspath to make it absolute, like shown here.
-
-import os
-import sys
-sys.path.append(os.path.abspath(".."))
-sys.path.append(os.path.abspath("../.."))
-
 # -- Project information -----------------------------------------------------
 
 project = "PGMax"
@@ -36,7 +26,9 @@ author = (
     "Guangyao Zhou, Antoine Dedieu, Nishanth Kumar, Miguel Lazaro-Gredilla,"
     " Shrinu Kushagra, Dileep George"
 )
-copyright = "2022 Intrinsic Innovation LLC, 2022 DeepMind Technologies Limited"  # pylint: disable=redefined-builtin
+copyright = (  # pylint: disable=redefined-builtin
+    "2022 Intrinsic Innovation LLC, 2023 DeepMind Technologies Limited"
+)
 
 # -- General configuration ---------------------------------------------------
 
@@ -59,7 +51,6 @@ templates_path = ["_templates"]
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = []  # type: ignore
 master_doc = "index"
-
 
 # -- Options for HTML output -------------------------------------------------
 

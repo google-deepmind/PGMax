@@ -16,6 +16,7 @@ pytest>=7.0.1
 pytest-env>=0.6.2
 pre-commit>=2.13.0
 sphinx-rtd-theme>=0.5.2
+sphinx-book-theme>=0.3.3
 pytest-cov>=2.12.1
 tensorflow_datasets>=4.6.0
 tensorflow>=2.9.1

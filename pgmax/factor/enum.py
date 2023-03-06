@@ -1,4 +1,5 @@
 # Copyright 2022 Intrinsic Innovation LLC.
+# Copyright 2023 DeepMind Technologies Limited.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +17,8 @@
 
 import dataclasses
 import functools
-from typing import List, Mapping, Sequence, Tuple, Union
+from typing import Any, Dict, Hashable, List, Mapping, Sequence, Tuple, Union
+import warnings
 
 import jax
 import jax.numpy as jnp
@@ -40,7 +42,6 @@ class EnumWiring(factor.Wiring):
       config index
       factor_configs_edge_states[ii, 1] contains the corresponding global
       edge_state index
-
       Both indices only take into account the EnumFactors of the FactorGraph
 
     num_val_configs: Number of valid configurations for this wiring
@@ -56,6 +57,15 @@ class EnumWiring(factor.Wiring):
     else:
       num_val_configs = int(self.factor_configs_edge_states[-1, 0]) + 1
     object.__setattr__(self, "num_val_configs", num_val_configs)
+
+  def get_inference_arguments(self) -> Dict[str, Any]:
+    """Return the list of arguments to run BP with EnumWirings."""
+    assert hasattr(self, "num_val_configs")
+    return {
+        "factor_configs_indices": self.factor_configs_edge_states[..., 0],
+        "factor_configs_edge_states": self.factor_configs_edge_states[..., 1],
+        "num_val_configs": self.num_val_configs,
+    }
 
 
 @dataclasses.dataclass(frozen=True, eq=False)
@@ -132,24 +142,27 @@ class EnumFactor(factor.Factor):
     """
     if not wirings:
       return EnumWiring(
-          edges_num_states=np.empty((0,), dtype=int),
-          var_states_for_edges=np.empty((0,), dtype=int),
+          var_states_for_edges=np.empty((0, 3), dtype=int),
           factor_configs_edge_states=np.empty((0, 2), dtype=int),
       )
 
+    concatenated_var_states_for_edges = factor.concatenate_var_states_for_edges(
+        [wiring.var_states_for_edges for wiring in wirings]
+    )
+
     factor_configs_cumsum = np.insert(
-        np.array(
+        np.cumsum(
             [wiring.factor_configs_edge_states[-1, 0] + 1 for wiring in wirings]
-        ).cumsum(),
+        ),
         0,
         0,
     )[:-1]
 
     # Note: this correspomds to all the factor_to_msgs_starts of the EnumFactors
     num_edge_states_cumsum = np.insert(
-        np.array(
-            [wiring.edges_num_states.sum() for wiring in wirings]
-        ).cumsum(),
+        np.cumsum(
+            [wiring.var_states_for_edges.shape[0] for wiring in wirings]
+        ),
         0,
         0,
     )[:-1]
@@ -165,12 +178,7 @@ class EnumFactor(factor.Factor):
       )
 
     return EnumWiring(
-        edges_num_states=np.concatenate(
-            [wiring.edges_num_states for wiring in wirings]
-        ),
-        var_states_for_edges=np.concatenate(
-            [wiring.var_states_for_edges for wiring in wirings]
-        ),
+        var_states_for_edges=concatenated_var_states_for_edges,
         factor_configs_edge_states=np.concatenate(
             factor_configs_edge_states, axis=0
         ),
@@ -193,19 +201,15 @@ class EnumFactor(factor.Factor):
       factor_edges_num_states: An array concatenating the number of states
         for the variables connected to each Factor of the FactorGroup.
         Each variable will appear once for each Factor it connects to.
-
       variables_for_factors: A list of list of variables. Each list within
         the outer list contains the variables connected to a Factor. The
         same variable can be connected to multiple Factors.
-
       factor_configs: Array of shape (num_val_configs, num_variables)
         containing an explicit enumeration of all valid configurations.
-
       vars_to_starts: A dictionary that maps variables to their global
         starting indices For an n-state variable, a global start index of
         m means the global indices of its n variable states are m, m + 1,
         ..., m + n - 1
-
       num_factors: Number of Factors in the FactorGroup.
 
     Raises: ValueError if factor_edges_num_states is not of shape
@@ -214,18 +218,30 @@ class EnumFactor(factor.Factor):
     Returns:
       The EnumWiring
     """
-    var_states = []
-    for variables_for_factor in variables_for_factors:
+    # Step 1: compute var_states_for_edges
+    first_var_state_by_edges = []
+    factor_indices = []
+    for factor_idx, variables_for_factor in enumerate(variables_for_factors):
       for variable in variables_for_factor:
-        var_states.append(vars_to_starts[variable])
-    var_states = np.array(var_states)
+        first_var_state_by_edges.append(vars_to_starts[variable])
+        factor_indices.append(factor_idx)
+    first_var_state_by_edges = np.array(first_var_state_by_edges)
+    factor_indices = np.array(factor_indices)
 
-    num_states_cumsum = np.insert(np.cumsum(factor_edges_num_states), 0, 0)
-    var_states_for_edges = np.empty(shape=(num_states_cumsum[-1],), dtype=int)
-    factor.compile_var_states_numba(
-        var_states_for_edges, num_states_cumsum, var_states
+    num_edges_states_cumsum = np.insert(
+        np.cumsum(factor_edges_num_states), 0, 0
+    )
+    var_states_for_edges = np.empty(
+        shape=(num_edges_states_cumsum[-1], 3), dtype=int
+    )
+    factor.compile_var_states_for_edges_numba(
+        var_states_for_edges,
+        num_edges_states_cumsum,
+        first_var_state_by_edges,
+        factor_indices,
     )
 
+    # Step 2: compute factor_configs_edge_states
     num_configs, num_variables = factor_configs.shape
     if factor_edges_num_states.shape != (num_factors * num_variables,):
       raise ValueError(
@@ -245,10 +261,83 @@ class EnumFactor(factor.Factor):
     )
 
     return EnumWiring(
-        edges_num_states=factor_edges_num_states,
         var_states_for_edges=var_states_for_edges,
         factor_configs_edge_states=factor_configs_edge_states,
     )
+
+  @staticmethod
+  def compute_energy(
+      wiring: EnumWiring,
+      edge_states_one_hot_decoding: jnp.ndarray,
+      log_potentials: jnp.ndarray,
+  ) -> float:
+    """Returns the contribution to the energy of several EnumFactors.
+
+    Args:
+      wiring: The EnumWiring of the EnumFactors
+      edge_states_one_hot_decoding: Array of shape (num_edge_states,)
+        Flattened array of one-hot decoding of the edge states connected to the
+        EnumFactors
+      log_potentials: Array of shape (num_val_configs, ). An entry at index i
+        is the log potential function value for the configuration with global
+        EnumFactor config index i.
+    """
+    assert hasattr(wiring, "num_val_configs")
+    num_factors = int(wiring.var_states_for_edges[-1, 2]) + 1
+
+    # One-hot decoding of all the factors configs
+    fac_config_decoded = (
+        jnp.ones(shape=(wiring.num_val_configs,))
+        .at[wiring.factor_configs_edge_states[..., 0]]
+        .multiply(
+            edge_states_one_hot_decoding[
+                wiring.factor_configs_edge_states[..., 1]
+            ]
+        )
+    )
+    if jnp.sum(fac_config_decoded) != num_factors:
+      # Invalid decoding
+      energy = -jnp.inf
+    else:
+      energy = jnp.sum(fac_config_decoded * log_potentials)
+    return float(energy)
+
+  @staticmethod
+  def compute_factor_energy(
+      variables: List[Hashable],
+      vars_to_map_states: Dict[Hashable, Any],
+      factor_configs: jnp.ndarray,
+      log_potentials: jnp.ndarray,
+  ) -> float:
+    """Returns the contribution to the energy of a single EnumFactor.
+
+    Args:
+      variables: List of variables connected by the EnumFactor
+      vars_to_map_states: A dictionary mapping each individual variable to
+        its MAP state.
+      factor_configs: Array of shape (num_val_configs, num_variables)
+        An array containing an explicit enumeration of all valid configurations
+      log_potentials: Array of shape (num_val_configs,)
+        An array containing the log of the potential value for each valid
+        configuration
+    """
+    vars_states_to_configs_indices = {}
+    for factor_config_idx, vars_states in enumerate(factor_configs):
+      vars_states_to_configs_indices[tuple(vars_states)] = factor_config_idx
+
+    vars_decoded_states = tuple([vars_to_map_states[var] for var in variables])
+    if vars_decoded_states not in vars_states_to_configs_indices:
+      warnings.warn(
+          f"Invalid decoding for Enum factor {variables} "
+          f"with variables set to {vars_decoded_states}!"
+      )
+      factor_energy = -np.inf
+    else:
+      factor_config_idx = vars_states_to_configs_indices[
+          vars_decoded_states
+      ]
+      factor_energy = log_potentials[factor_config_idx]
+    return float(factor_energy)
 
 
 # pylint: disable=g-doc-args
@@ -288,6 +377,7 @@ def _compile_enumeration_wiring_numba(
 @functools.partial(jax.jit, static_argnames=("num_val_configs", "temperature"))
 def pass_enum_fac_to_var_messages(
     vtof_msgs: jnp.ndarray,
+    factor_configs_indices: jnp.ndarray,
     factor_configs_edge_states: jnp.ndarray,
     log_potentials: jnp.ndarray,
     num_val_configs: int,
@@ -303,18 +393,16 @@ def pass_enum_fac_to_var_messages(
   scattering operation and generate a flat set of output messages.
 
   Args:
-    vtof_msgs: Array of shape (num_edge_state,)
-      This holds all theflattened variable to all the EnumFactors messages
+    vtof_msgs: Array of shape (num_edge_states,)
+      This holds all the flattened variable to all the EnumFactors messages
 
-    factor_configs_edge_states: Array of shape (num_factor_configs, 2)
-      factor_configs_edge_states[ii] contains a pair of global enumeration
-      factor_config and global edge_state indices
-      factor_configs_edge_states[ii, 0] contains the global EnumFactor
-      config index
-      factor_configs_edge_states[ii, 1] contains the corresponding global
-      edge_state index
+    factor_configs_indices: Array of shape (num_factor_configs,) containing the
+      global EnumFactor config indices.
+      Only takes into account the EnumFactors of the FactorGraph
 
-      Both indices only take into account the EnumFactors of the FactorGraph
+    factor_configs_edge_states: Array of shape (num_factor_configs,) containing
+      the global edge_state index associated with each EnumFactor config index.
+      Only takes into account the EnumFactors of the FactorGraph
 
     log_potentials: Array of shape (num_val_configs, ). An entry at index i
       is the log potential function value for the configuration with global
@@ -327,34 +415,33 @@ def pass_enum_fac_to_var_messages(
       to sum-product, 0.0 corresponds to max-product.
 
   Returns:
-      Array of shape (num_edge_state,). This holds all the flattened
-      EnumFactors to variable messages.
+    Array of shape (num_edge_states,). This holds all the flattened
+    EnumFactors to variable messages.
   """
   fac_config_summary_sum = (
       jnp.zeros(shape=(num_val_configs,))
-      .at[factor_configs_edge_states[..., 0]]
-      .add(vtof_msgs[factor_configs_edge_states[..., 1]])
+      .at[factor_configs_indices]
+      .add(vtof_msgs[factor_configs_edge_states])
   ) + log_potentials
   max_factor_config_summary_for_edge_states = (
       jnp.full(shape=(vtof_msgs.shape[0],), fill_value=NEG_INF)
-      .at[factor_configs_edge_states[..., 1]]
-      .max(fac_config_summary_sum[factor_configs_edge_states[..., 0]])
+      .at[factor_configs_edge_states]
+      .max(fac_config_summary_sum[factor_configs_indices])
   )
-  ftov_msgs = max_factor_config_summary_for_edge_states - vtof_msgs
+  ftov_msgs = max_factor_config_summary_for_edge_states
+
   if temperature != 0.0:
     ftov_msgs = ftov_msgs + (
         temperature
         * jnp.log(
-            jnp.full(shape=(vtof_msgs.shape[0],), fill_value=jnp.exp(NEG_INF))
-            .at[factor_configs_edge_states[..., 1]]
+            jnp.zeros((vtof_msgs.shape[0],))
+            .at[factor_configs_edge_states]
             .add(
                 jnp.exp(
                     (
-                        fac_config_summary_sum[
-                            factor_configs_edge_states[..., 0]
-                        ]
+                        fac_config_summary_sum[factor_configs_indices]
                         - max_factor_config_summary_for_edge_states[
-                            factor_configs_edge_states[..., 1]
+                            factor_configs_edge_states
                         ]
                     )
                     / temperature
@@ -362,4 +449,7 @@ def pass_enum_fac_to_var_messages(
             )
         )
     )
+
+  # Remove incoming messages
+  ftov_msgs -= vtof_msgs
   return ftov_msgs

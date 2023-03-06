@@ -1,4 +1,4 @@
-# Copyright 2022 DeepMind Technologies Limited.
+# Copyright 2023 DeepMind Technologies Limited.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,8 @@
 
 import dataclasses
 import functools
-from typing import List, Mapping, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, Hashable, List, Mapping, Optional, Sequence, Tuple, Union
+import warnings
 
 import jax
 import jax.numpy as jnp
@@ -36,14 +37,17 @@ class PoolWiring(factor.Wiring):
     pool_choices_edge_states: Array of shape (num_pool_choices, 2)
       pool_choices_edge_states[ii, 0] contains the global PoolFactor index
       pool_choices_edge_states[ii, 1] contains the message index of the pool
-      choice variable's state 0. The message index of the pool choice variable's
-      state 1 is pool_choices_edge_states[ii, 1] + 1
+      choice variable's state 0.
+      The message index of the pool choice variable's state 1 is
+      pool_choices_edge_states[ii, 1] + 1
+      Both indices only take into account the PoolFactors of the FactorGraph
 
     pool_indicators_edge_states: Array of shape (num_pool_factors,)
       pool_indicators_edge_states[ii] contains the message index of the pool
-      indicator variable's state 0, which takes into account all the PoolFactors
-      of the FactorGraph. The message index of the pool indicator variable's
-      state 1 is pool_indicators_edge_states[ii, 1] + 1
+      indicator variable's state 0
+      The message index of the pool indicator variable's state 1 is
+      pool_indicators_edge_states[ii] + 1
+      Only takes into account the PoolFactors of the FactorGraph
 
   Raises:
     ValueError: If:
@@ -71,6 +75,14 @@ class PoolWiring(factor.Wiring):
         raise ValueError(
             f"The highest PoolFactor index must be {num_pool_factors - 1}"
         )
+
+  def get_inference_arguments(self) -> Dict[str, Any]:
+    """Return the list of arguments to run BP with LogicalWirings."""
+    return {
+        "pool_choices_factor_indices": self.pool_choices_edge_states[..., 0],
+        "pool_choices_msg_indices": self.pool_choices_edge_states[..., 1],
+        "pool_indicators_edge_states": self.pool_indicators_edge_states,
+    }
 
 
 @dataclasses.dataclass(frozen=True, eq=False)
@@ -115,8 +127,7 @@ class PoolFactor(factor.Factor):
     """
     if not wirings:
       return PoolWiring(
-          edges_num_states=np.empty((0,), dtype=int),
-          var_states_for_edges=np.empty((0,), dtype=int),
+          var_states_for_edges=np.empty((0, 3), dtype=int),
           pool_choices_edge_states=np.empty((0, 2), dtype=int),
           pool_indicators_edge_states=np.empty((0,), dtype=int),
       )
@@ -124,7 +135,6 @@ class PoolFactor(factor.Factor):
     logical_wirings = []
     for wiring in wirings:
       logical_wiring = logical.LogicalWiring(
-          edges_num_states=wiring.edges_num_states,
           var_states_for_edges=wiring.var_states_for_edges,
           parents_edge_states=wiring.pool_choices_edge_states,
           children_edge_states=wiring.pool_indicators_edge_states,
@@ -135,7 +145,6 @@ class PoolFactor(factor.Factor):
     logical_wiring = logical.LogicalFactor.concatenate_wirings(logical_wirings)
 
     return PoolWiring(
-        edges_num_states=logical_wiring.edges_num_states,
         var_states_for_edges=logical_wiring.var_states_for_edges,
         pool_choices_edge_states=logical_wiring.parents_edge_states,
         pool_indicators_edge_states=logical_wiring.children_edge_states,
@@ -167,18 +176,88 @@ class PoolFactor(factor.Factor):
     )
 
     return PoolWiring(
-        edges_num_states=logical_wiring.edges_num_states,
         var_states_for_edges=logical_wiring.var_states_for_edges,
         pool_choices_edge_states=logical_wiring.parents_edge_states,
         pool_indicators_edge_states=logical_wiring.children_edge_states,
     )
+
+  @staticmethod
+  def compute_energy(
+      wiring: PoolWiring,
+      edge_states_one_hot_decoding: jnp.ndarray,
+      log_potentials: Optional[jnp.ndarray] = None,
+  ) -> float:
+    """Returns the contribution to the energy of several PoolFactors.
+
+    Args:
+      wiring: The PoolWiring of the PoolFactors
+      edge_states_one_hot_decoding: Array of shape (num_edge_states,)
+        Flattened array of one-hot decoding of the edge states connected to the
+        PoolFactors
+      log_potentials: Optional array of log potentials
+    """
+    num_factors = wiring.pool_indicators_edge_states.shape[0]
+
+    # pool_choices_edge_states[..., 1] + 1 contains the state 1
+    # Either all the pool_choices and the pool_indicator are set to 0
+    # or exactly one of the pool_choices and the pool_indicator are set to 1
+    pool_choices_decoded = (
+        jnp.zeros(shape=(num_factors,))
+        .at[wiring.pool_choices_edge_states[..., 0]]
+        .add(
+            edge_states_one_hot_decoding[
+                wiring.pool_choices_edge_states[..., 1] + 1
+            ]
+        )
+    )
+    pool_indicators_decoded = edge_states_one_hot_decoding[
+        wiring.pool_indicators_edge_states + 1
+    ]
+    if jnp.any(pool_choices_decoded != pool_indicators_decoded):
+      return -jnp.inf
+    else:
+      return 0.0
+
+  @staticmethod
+  def compute_factor_energy(
+      variables: List[Hashable],
+      vars_to_map_states: Dict[Hashable, Any],
+      **kwargs,
+  ) -> float:
+    """Returns the contribution to the energy of a single PoolFactor.
+
+    Args:
+      variables: List of variables connected by the PoolFactor
+      vars_to_map_states: A dictionary mapping each individual variable to
+        its MAP state.
+      **kwargs: Other parameters, not used
+    """
+    vars_decoded_states = np.array(
+        [vars_to_map_states[var] for var in variables]
+    )
+    pool_choices_decoded_states = vars_decoded_states[:-1]
+    pool_indicators_decoded_states = vars_decoded_states[-1]
+    if (
+        np.sum(pool_choices_decoded_states)
+        != pool_indicators_decoded_states
+    ):
+      warnings.warn(
+          f"Invalid decoding for Pool factor {variables} "
+          f"with pool choices set to {pool_choices_decoded_states} "
+          f"and pool indicators set to {pool_indicators_decoded_states}!"
+      )
+      factor_energy = -np.inf
+    else:
+      factor_energy = 0.0
+    return factor_energy
 
 
 # pylint: disable=unused-argument
 @functools.partial(jax.jit, static_argnames="temperature")
 def pass_pool_fac_to_var_messages(
     vtof_msgs: jnp.ndarray,
-    pool_choices_edge_states: jnp.ndarray,
+    pool_choices_factor_indices: jnp.ndarray,
+    pool_choices_msg_indices: jnp.ndarray,
     pool_indicators_edge_states: jnp.ndarray,
     temperature: float,
     log_potentials: Optional[jnp.ndarray] = None,
@@ -186,20 +265,27 @@ def pass_pool_fac_to_var_messages(
   """Passes messages from PoolFactors to Variables.
 
   Args:
-    vtof_msgs: Array of shape (num_edge_state,). This holds all the flattened
+    vtof_msgs: Array of shape (num_edge_states,). This holds all the flattened
       variable to all the PoolFactors messages.
 
-    pool_choices_edge_states: Array of shape (num_pool_choices, 2)
-      pool_choices_edge_states[ii, 0] contains the global PoolFactor index
-      pool_choices_edge_states[ii, 1] contains the message index of the pool
-      choice variable's state 0. The message index of the pool choice variable's
-      state 1 is pool_choices_edge_states[ii, 1] + 1
+    pool_choices_factor_indices: Array of shape (num_pool_choices,)
+      pool_choices_factor_indices[ii] contains the global PoolFactor index of
+      the pool choice variable's state 0
+      Only takes into account the PoolFactors of the FactorGraph
+
+    pool_choices_msg_indices: Array of shape (num_pool_choices,)
+      pool_choices_msg_indices[ii] contains the message index of the pool choice
+      variable's state 0
+      The message index of the pool choice variable's state 1 is
+      pool_choices_msg_indices[ii] + 1
+      Only takes into account the PoolFactors of the FactorGraph
 
     pool_indicators_edge_states: Array of shape (num_pool_factors,)
       pool_indicators_edge_states[ii] contains the message index of the pool
-      indicator variable's state 0, which takes into account all the PoolFactors
-      of the FactorGraph. The message index of the pool indicator variable's
-      state 1 is pool_indicators_edge_states[ii, 1] + 1
+      indicator variable's state 0
+      The message index of the pool indicator variable's state 1 is
+      pool_indicators_edge_states[ii] + 1
+      Only takes into account the PoolFactors of the FactorGraph
 
     temperature: Temperature for loopy belief propagation. 1.0 corresponds to
       sum-product, 0.0 corresponds to max-product.
@@ -207,15 +293,14 @@ def pass_pool_fac_to_var_messages(
     log_potentials: Optional array of log potentials
 
   Returns:
-      Array of shape (num_edge_state,). This holds all the flattened PoolFactors
-      to variable messages.
+    Array of shape (num_edge_states,). This holds all the flattened PoolFactors
+    to variable messages.
   """
   num_factors = pool_indicators_edge_states.shape[0]
-  factor_indices = pool_choices_edge_states[..., 0]
 
   pool_choices_tof_msgs = (
-      vtof_msgs[pool_choices_edge_states[..., 1] + 1]
-      - vtof_msgs[pool_choices_edge_states[..., 1]]
+      vtof_msgs[pool_choices_msg_indices + 1]
+      - vtof_msgs[pool_choices_msg_indices]
   )
   pool_indicators_tof_msgs = (
       vtof_msgs[pool_indicators_edge_states + 1]
@@ -223,7 +308,7 @@ def pass_pool_fac_to_var_messages(
   )
 
   pool_choices_maxes, pool_choices_argmaxes = logical.get_maxes_and_argmaxes(
-      pool_choices_tof_msgs, factor_indices, num_factors
+      pool_choices_tof_msgs, pool_choices_factor_indices, num_factors
   )
 
   # Consider the max-product case separately.
@@ -235,25 +320,31 @@ def pass_pool_fac_to_var_messages(
 
     pool_choices_second_maxes = (
         jnp.full(shape=(num_factors,), fill_value=NEG_INF)
-        .at[factor_indices]
+        .at[pool_choices_factor_indices]
         .max(pool_choices_wo_maxes)
     )
 
     # Compute the maximum of the incoming messages without self
-    pool_choices_maxes_wo_self = pool_choices_maxes[factor_indices]
+    pool_choices_maxes_wo_self = pool_choices_maxes[
+        pool_choices_factor_indices
+    ]
     pool_choices_maxes_wo_self = pool_choices_maxes_wo_self.at[
         pool_choices_argmaxes
     ].set(pool_choices_second_maxes)
 
     # Get the outgoing messages
     pool_choices_msgs = jnp.minimum(
-        pool_indicators_tof_msgs[factor_indices], -pool_choices_maxes_wo_self
+        pool_indicators_tof_msgs[pool_choices_factor_indices],
+        -pool_choices_maxes_wo_self,
     )
     pool_indicators_msgs = pool_choices_maxes
 
   else:
     exp_pool_choices_wo_maxes = jnp.exp(
-        (pool_choices_tof_msgs - pool_choices_maxes[factor_indices])
+        (
+            pool_choices_tof_msgs
+            - pool_choices_maxes[pool_choices_factor_indices]
+        )
         / temperature
     )
     exp_minus_parents_wo_maxes = jnp.exp(
@@ -262,27 +353,29 @@ def pass_pool_fac_to_var_messages(
 
     sum_exp_pool_choices_wo_maxes = (
         jnp.zeros((num_factors,))
-        .at[factor_indices]
+        .at[pool_choices_factor_indices]
         .add(exp_pool_choices_wo_maxes)
     )
     sum_exp_pool_choices_wo_maxes_wo_self = (
-        sum_exp_pool_choices_wo_maxes[factor_indices]
+        sum_exp_pool_choices_wo_maxes[pool_choices_factor_indices]
         - exp_pool_choices_wo_maxes
     )
 
     # Get the outgoing messages
     pool_choices_msgs = -pool_choices_maxes[
-        factor_indices
+        pool_choices_factor_indices
     ] - temperature * jnp.log(
         sum_exp_pool_choices_wo_maxes_wo_self
-        + exp_minus_parents_wo_maxes[factor_indices]
+        + exp_minus_parents_wo_maxes[pool_choices_factor_indices]
     )
     pool_indicators_msgs = pool_choices_maxes + temperature * jnp.log(
         sum_exp_pool_choices_wo_maxes
     )
 
   # Special case: factors with a single parent
-  num_pool_choices = jnp.bincount(factor_indices, length=num_factors)
+  num_pool_choices = jnp.bincount(
+      pool_choices_factor_indices, length=num_factors
+  )
   first_pool_choices = jnp.concatenate(
       [jnp.zeros(1, dtype=int), jnp.cumsum(num_pool_choices)]
   )[:-1]
@@ -295,9 +388,7 @@ def pass_pool_fac_to_var_messages(
   )
 
   ftov_msgs = jnp.zeros_like(vtof_msgs)
-  ftov_msgs = ftov_msgs.at[pool_choices_edge_states[..., 1] + 1].set(
-      pool_choices_msgs
-  )
+  ftov_msgs = ftov_msgs.at[pool_choices_msg_indices + 1].set(pool_choices_msgs)
   ftov_msgs = ftov_msgs.at[pool_indicators_edge_states + 1].set(
       pool_indicators_msgs
   )

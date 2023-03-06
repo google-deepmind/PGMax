@@ -7,8 +7,7 @@
 
 PGMax implements general [factor graphs](https://en.wikipedia.org/wiki/Factor_graph)
 for discrete probabilistic graphical models (PGMs), and
-hardware-accelerated differentiable [loopy belief propagation (LBP)]
-(https://en.wikipedia.org/wiki/Belief_propagation)
+hardware-accelerated differentiable [loopy belief propagation (LBP)](https://en.wikipedia.org/wiki/Belief_propagation)
 in [JAX](https://jax.readthedocs.io/en/latest/).
 
 - **General factor graphs**: PGMax supports easy specification of general

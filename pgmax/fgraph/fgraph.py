@@ -1,4 +1,5 @@
 # Copyright 2022 Intrinsic Innovation LLC.
+# Copyright 2022 DeepMind Technologies Limited.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -48,6 +49,7 @@ class FactorGraphState:
     factor_group_to_potentials_starts: Maps factor groups to their starting
       indices in the flat log potentials.
     log_potentials: Flat log potentials array concatenated for each factor type.
+    evidence_to_vars: Maps the evidence entries to their variable indices
     wiring: Wiring derived for each factor type.
   """
 
@@ -61,6 +63,7 @@ class FactorGraphState:
   ]
   factor_group_to_potentials_starts: OrderedDict[fgroup.FactorGroup, int]
   log_potentials: np.ndarray
+  evidence_to_vars: np.ndarray
   wiring: OrderedDict[Type[factor.Factor], factor.Wiring]
 
   def __post_init__(self):
@@ -310,6 +313,17 @@ class FactorGraph:
     """Tuple of factor groups in the factor graph."""
     return self._factor_types_to_groups
 
+  @property
+  def evidence_to_vars(self) -> np.ndarray:
+    """Returns the variable index associated with each evidence entry."""
+    var_indices = list(self._vars_to_starts.values()) + [self._num_var_states]
+
+    evidence_to_vars = np.zeros((self._num_var_states,))
+    for idx_var in range(len(var_indices) - 1):
+      var_start, var_stop = var_indices[idx_var], var_indices[idx_var + 1]
+      evidence_to_vars[var_start:var_stop] = idx_var
+    return evidence_to_vars
+
   @cached_property
   def fg_state(self) -> FactorGraphState:
     """Current factor graph state given the added factors."""
@@ -336,6 +350,7 @@ class FactorGraph:
             self._factor_group_to_potentials_starts
         ),
         log_potentials=log_potentials,
+        evidence_to_vars=self.evidence_to_vars,
         wiring=self.wiring,
     )
 

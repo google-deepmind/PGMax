@@ -1,4 +1,5 @@
 # Copyright 2022 Intrinsic Innovation LLC.
+# Copyright 2023 DeepMind Technologies Limited.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,17 +17,17 @@
 
 import dataclasses
 import functools
-import inspect
-from typing import Any, Callable, Dict, Hashable, Optional, Tuple
+from typing import Any, Callable, Dict, Hashable, Optional, Sequence, Tuple
 import warnings
 
 import jax
 import jax.numpy as jnp
 from jax.scipy.special import logsumexp
 import numpy as np
+from pgmax import factor
+from pgmax import vgroup
 from pgmax.factor import FAC_TO_VAR_UPDATES
 from pgmax.infer import bp_state as bpstate
-from pgmax.infer import bp_utils
 from pgmax.infer.bp_state import BPArrays
 from pgmax.infer.bp_state import BPState
 from pgmax.infer.bp_state import Evidence
@@ -110,34 +111,23 @@ def BP(bp_state: BPState, temperature: float = 0.0) -> BeliefPropagation:
     )
 
   wiring = bp_state.fg_state.wiring
-  edges_num_states = np.concatenate(
-      [
-          wiring[factor_type].edges_num_states
-          for factor_type in FAC_TO_VAR_UPDATES
-      ]
-  )
-  max_msg_size = int(np.max(edges_num_states))
 
-  var_states_for_edges = np.concatenate(
+  # Add offsets to the edges and factors indices of var_states_for_edges
+  var_states_for_edges = factor.concatenate_var_states_for_edges(
       [
           wiring[factor_type].var_states_for_edges
           for factor_type in FAC_TO_VAR_UPDATES
       ]
   )
+  var_states_for_edge_states = var_states_for_edges[..., 0]
+  edge_indices_for_edge_states = var_states_for_edges[..., 1]
+
+  num_edges = int(var_states_for_edges[-1, 1]) + 1
 
   # Inference argumnets per factor type
   inference_arguments = {}
   for factor_type in FAC_TO_VAR_UPDATES:
-    this_inference_arguments = inspect.getfullargspec(
-        FAC_TO_VAR_UPDATES[factor_type]
-    ).args
-    this_inference_arguments.remove("vtof_msgs")
-    this_inference_arguments.remove("log_potentials")
-    this_inference_arguments.remove("temperature")
-    this_inference_arguments = {
-        key: getattr(wiring[factor_type], key)
-        for key in this_inference_arguments
-    }
+    this_inference_arguments = wiring[factor_type].get_inference_arguments()
     inference_arguments[factor_type] = this_inference_arguments
 
   factor_type_to_msgs_range = bp_state.fg_state.factor_type_to_msgs_range
@@ -219,16 +209,14 @@ def BP(bp_state: BPState, temperature: float = 0.0) -> BeliefPropagation:
 
     # Normalize the messages to ensure the maximum value is 0.
     ftov_msgs = normalize_and_clip_msgs(
-        ftov_msgs, edges_num_states, max_msg_size
+        ftov_msgs, edge_indices_for_edge_states, num_edges
     )
 
     @jax.checkpoint
     def update(msgs: jnp.ndarray, _) -> Tuple[jnp.ndarray, None]:
       # Compute new variable to factor messages by message passing
       vtof_msgs = pass_var_to_fac_messages(
-          msgs,
-          evidence,
-          var_states_for_edges,
+          msgs, evidence, var_states_for_edge_states,
       )
       ftov_msgs = jnp.zeros_like(vtof_msgs)
       for factor_type in FAC_TO_VAR_UPDATES:
@@ -251,7 +239,9 @@ def BP(bp_state: BPState, temperature: float = 0.0) -> BeliefPropagation:
       delta_msgs = ftov_msgs - msgs
       msgs = msgs + (1 - damping) * delta_msgs
       # Normalize and clip these damped, updated messages before returning them.
-      msgs = normalize_and_clip_msgs(msgs, edges_num_states, max_msg_size)
+      msgs = normalize_and_clip_msgs(
+          msgs, edge_indices_for_edge_states, num_edges
+      )
       return msgs, None
 
     # Scan can have significant overhead for a small number of iterations
@@ -283,11 +273,16 @@ def BP(bp_state: BPState, temperature: float = 0.0) -> BeliefPropagation:
             fg_state=bp_state.fg_state,
             value=bp_arrays.ftov_msgs,
         ),
-        evidence=Evidence(fg_state=bp_state.fg_state, value=bp_arrays.evidence),
+        evidence=Evidence(
+            fg_state=bp_state.fg_state,
+            value=bp_arrays.evidence,
+        ),
     )
 
-  def unflatten_beliefs(flat_beliefs, variable_groups) -> Dict[Hashable, Any]:
-    """Function that returns unflattened beliefs from the flat beliefs.
+  def unflatten_beliefs(
+      flat_beliefs: jnp.array, variable_groups: Sequence[vgroup.VarGroup]
+  ) -> Dict[Hashable, Any]:
+    """Function to return unflattened beliefs from the flat beliefs.
 
     Args:
       flat_beliefs: Flattened array of beliefs
@@ -322,7 +317,7 @@ def BP(bp_state: BPState, temperature: float = 0.0) -> BeliefPropagation:
 
     flat_beliefs = (
         jax.device_put(bp_arrays.evidence)
-        .at[jax.device_put(var_states_for_edges)]
+        .at[jax.device_put(var_states_for_edge_states)]
         .add(bp_arrays.ftov_msgs)
     )
     return unflatten_beliefs(flat_beliefs, bp_state.fg_state.variable_groups)
@@ -339,10 +334,10 @@ def BP(bp_state: BPState, temperature: float = 0.0) -> BeliefPropagation:
 
 @jax.jit
 def pass_var_to_fac_messages(
-    ftov_msgs: jnp.array,
-    evidence: jnp.array,
-    var_states_for_edges: jnp.array,
-) -> jnp.array:
+    ftov_msgs: jnp.ndarray,
+    evidence: jnp.ndarray,
+    var_states_for_edge_states: jnp.ndarray,
+) -> jnp.ndarray:
   """Passes messages from Variables to Factors.
 
   The update works by first summing the evidence and neighboring factor to
@@ -351,27 +346,26 @@ def pass_var_to_fac_messages(
   sum to yield the correct updated messages.
 
   Args:
-    ftov_msgs: Array of shape (num_edge_state,). This holds all the flattened
+    ftov_msgs: Array of shape (num_edge_states,). This holds all the flattened
       factor to variable messages.
     evidence: Array of shape (num_var_states,) representing the flattened
       evidence for each variable
-    var_states_for_edges: Array of shape (num_edge_states,) This holds the
-      global variable state indices for each edge state
+    var_states_for_edge_states: Array of shape (num_edge_states,).
+      var_states_for_edges[ii] contains the global variable state index
+      associated to each edge state
 
   Returns:
       Array of shape (num_edge_state,). This holds all the flattened variable
       to factor messages.
   """
-  var_sums_arr = evidence.at[var_states_for_edges].add(ftov_msgs)
-  vtof_msgs = var_sums_arr[var_states_for_edges] - ftov_msgs
+  var_sums_arr = evidence.at[var_states_for_edge_states].add(ftov_msgs)
+  vtof_msgs = var_sums_arr[var_states_for_edge_states] - ftov_msgs
   return vtof_msgs
 
 
-@functools.partial(jax.jit, static_argnames="max_msg_size")
+@functools.partial(jax.jit, static_argnames="num_edges")
 def normalize_and_clip_msgs(
-    msgs: jnp.ndarray,
-    edges_num_states: jnp.ndarray,
-    max_msg_size: int,
+    msgs: jnp.ndarray, edge_indices_for_edge_states: jnp.ndarray, num_edges: int
 ) -> jnp.ndarray:
   """Performs normalization and clipping of flattened messages.
 
@@ -380,24 +374,27 @@ def normalize_and_clip_msgs(
   clipping is done to keep every message value in the range [-1000, 0].
 
   Args:
-    msgs: Array of shape (num_edge_state,). This holds all the flattened factor
+    msgs: Array of shape (num_edge_states,). This holds all the flattened factor
       to variable messages.
-    edges_num_states: Array of shape (num_edges,). Number of states for the
-      variables connected to each edge
-    max_msg_size: the max of edges_num_states
+    edge_indices_for_edge_states: Array of shape (num_edge_states,)
+      edge_indices_for_edge_states[ii] contains the global edge index
+      associated to the edge state
+    num_edges: Total number of edges in the factor graph
 
   Returns:
-    Array of shape (num_edge_state,). This holds all the flattened factor to
+    Array of shape (num_edge_states,). This holds all the flattened factor to
     variable messages after normalization and clipping
   """
-  msgs = msgs - jnp.repeat(
-      bp_utils.segment_max_opt(msgs, edges_num_states, max_msg_size),
-      edges_num_states,
-      total_repeat_length=msgs.shape[0],
+  max_by_edges = (
+      jnp.full(shape=(num_edges,), fill_value=NEG_INF)
+      .at[edge_indices_for_edge_states]
+      .max(msgs)
   )
+  norm_msgs = msgs - max_by_edges[edge_indices_for_edge_states]
+
   # Clip message values to be always greater than NEG_INF
-  msgs = jnp.clip(msgs, NEG_INF, None)
-  return msgs
+  new_msgs = jnp.clip(norm_msgs, NEG_INF, None)
+  return new_msgs
 
 
 @jax.jit
@@ -405,12 +402,11 @@ def decode_map_states(beliefs: Dict[Hashable, Any]) -> Any:
   """Function to decode MAP states given the calculated beliefs.
 
   Args:
-    beliefs: An array or a PyTree container containing beliefs for different
+    beliefs: A dictionary mapping each VarGroup to the beliefs of all its
       variables.
 
   Returns:
-    An array or a PyTree container containing the MAP states for different
-    variables.
+    A dictionary mapping each VarGroup to the MAP states of all its variables.
   """
   return jax.tree_util.tree_map(lambda x: jnp.argmax(x, axis=-1), beliefs)
 
@@ -432,12 +428,12 @@ def get_marginals(beliefs: Dict[Hashable, Any]) -> Any:
   norm_soft_max_marginals(x_i^*) ∝ (sum_{x: x_i = x_i^*} p(x)^{1 /Temp})^Temp
 
   Args:
-    beliefs: An array or a PyTree container containing beliefs for different
+    beliefs: A dictionary mapping each VarGroup to the beliefs of all its
       variables.
 
   Returns:
-    An array or a PyTree container containing the marginal probabilities
-    different variables.
+    A dictionary mapping each VarGroup to the marginal probabilities of all its
+    variables.
   """
   return jax.tree_util.tree_map(
       lambda x: jnp.exp(x - logsumexp(x, axis=-1, keepdims=True)), beliefs
