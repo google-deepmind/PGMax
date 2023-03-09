@@ -68,6 +68,8 @@ def compute_energy(
     energy: The energy of the decoding
     vars_energies: The energy of each individual variable (only in debug mode)
     factors_energies: The energy of each individual factor (only in debug mode)
+
+  Note: Remember that the lower the energy, the better the decoding!
   """
   if debug_mode:
     return _compute_energy_debug_mode(bp_state, bp_arrays, map_states)
@@ -87,6 +89,12 @@ def compute_energy(
   )
   log_potentials = bp_arrays.log_potentials
   evidence = bp_arrays.evidence
+
+  # Inference argumnets per factor type
+  inference_arguments = {}
+  for factor_type in FAC_TO_VAR_UPDATES:
+    this_inference_arguments = wiring[factor_type].get_inference_arguments()
+    inference_arguments[factor_type] = this_inference_arguments
 
   # Step 1: compute the contribution of all the variables to the energy
   # Represent the decoding of each variable groups via a one-hot vector
@@ -112,7 +120,7 @@ def compute_energy(
       vgroups_one_hot_decoding,
       bp_state.fg_state,
   )
-  energy = jnp.sum(var_states_one_hot_decoding * evidence)
+  energy = -jnp.sum(var_states_one_hot_decoding * evidence)
 
   # Step 2: compute the contribution of each factor type to the energy
   # Extract the one-hot decoding of all the edge states
@@ -127,11 +135,11 @@ def compute_energy(
     # Do not compute the energy for factor types not present in the graph
     if msgs_start != msgs_end:
       energy += factor_type.compute_energy(
-          wiring=wiring[factor_type],
           edge_states_one_hot_decoding=edge_states_one_hot_decoding[
               msgs_start:msgs_end
           ],
           log_potentials=log_potentials[potentials_start:potentials_end],
+          **inference_arguments[factor_type],
       )
   return energy, None, None
 
@@ -169,7 +177,7 @@ def _compute_energy_debug_mode(
   for variable_group in bp_state.fg_state.variable_groups:
     for var in variable_group.variables:
       var_decoded_state = int(vars_to_map_states[var])
-      var_energy = float(evidence[var][var_decoded_state])
+      var_energy = -float(evidence[var][var_decoded_state])
       vars_energies[var] = var_energy
       energy += var_energy
 

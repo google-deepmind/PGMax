@@ -71,16 +71,22 @@ class NDVarArray(vgroup.VarGroup):
   def __repr__(self) -> str:
     assert isinstance(self.num_states, np.ndarray)
 
-    obj = self.__dict__.copy()
-    min_num_states = self.num_states.min()
-    max_num_states = self.num_states.max()
-    if min_num_states == max_num_states:
-      obj["num_states"] = f"Array containing only {min_num_states}s"
-    else:
-      obj["num_states"] = (
-          f"Array of integers between {min_num_states} and {max_num_states}"
-      )
-    return obj.__repr__()
+    if self.num_states.size == 0:
+      num_states_str = f"num_states={self.num_states}"
+    elif self.num_states.size > 0:
+      min_num_states = self.num_states.min()
+      max_num_states = self.num_states.max()
+
+      if min_num_states == max_num_states:
+        num_states_str = f"num_states={min_num_states}"
+      else:
+        num_states_str = (
+            f"min_num_states={min_num_states}, max_num_states={max_num_states}"
+        )
+
+    return (
+        f"NDVarArray(shape={self.shape}, {num_states_str}, _hash={self._hash})"
+    )
 
   def __getitem__(
       self, val: Union[int, slice, Tuple[Union[int, slice], ...]]

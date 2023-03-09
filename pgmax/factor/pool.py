@@ -182,41 +182,63 @@ class PoolFactor(factor.Factor):
     )
 
   @staticmethod
+  @jax.jit
   def compute_energy(
-      wiring: PoolWiring,
       edge_states_one_hot_decoding: jnp.ndarray,
+      pool_choices_factor_indices: jnp.ndarray,
+      pool_choices_msg_indices: jnp.ndarray,
+      pool_indicators_edge_states: jnp.ndarray,
       log_potentials: Optional[jnp.ndarray] = None,
   ) -> float:
     """Returns the contribution to the energy of several PoolFactors.
 
     Args:
-      wiring: The PoolWiring of the PoolFactors
       edge_states_one_hot_decoding: Array of shape (num_edge_states,)
         Flattened array of one-hot decoding of the edge states connected to the
         PoolFactors
+
+      pool_choices_factor_indices: Array of shape (num_pool_choices,)
+        pool_choices_factor_indices[ii] contains the global PoolFactor index of
+        the pool choice variable's state 0
+        Only takes into account the PoolFactors of the FactorGraph
+
+      pool_choices_msg_indices: Array of shape (num_pool_choices,)
+        pool_choices_msg_indices[ii] contains the message index of the pool
+        choice variable's state 0
+        The message index of the pool choice variable's state 1 is
+        pool_choices_msg_indices[ii] + 1
+        Only takes into account the PoolFactors of the FactorGraph
+
+      pool_indicators_edge_states: Array of shape (num_pool_factors,)
+        pool_indicators_edge_states[ii] contains the message index of the pool
+        indicator variable's state 0
+        The message index of the pool indicator variable's state 1 is
+        pool_indicators_edge_states[ii] + 1
+        Only takes into account the PoolFactors of the FactorGraph
+
       log_potentials: Optional array of log potentials
     """
-    num_factors = wiring.pool_indicators_edge_states.shape[0]
+    num_factors = pool_indicators_edge_states.shape[0]
 
     # pool_choices_edge_states[..., 1] + 1 contains the state 1
     # Either all the pool_choices and the pool_indicator are set to 0
     # or exactly one of the pool_choices and the pool_indicator are set to 1
     pool_choices_decoded = (
         jnp.zeros(shape=(num_factors,))
-        .at[wiring.pool_choices_edge_states[..., 0]]
+        .at[pool_choices_factor_indices]
         .add(
-            edge_states_one_hot_decoding[
-                wiring.pool_choices_edge_states[..., 1] + 1
-            ]
+            edge_states_one_hot_decoding[pool_choices_msg_indices + 1]
         )
     )
     pool_indicators_decoded = edge_states_one_hot_decoding[
-        wiring.pool_indicators_edge_states + 1
+        pool_indicators_edge_states + 1
     ]
-    if jnp.any(pool_choices_decoded != pool_indicators_decoded):
-      return -jnp.inf
-    else:
-      return 0.0
+    energy = jnp.where(
+        jnp.any(pool_choices_decoded != pool_indicators_decoded),
+        jnp.inf,  # invalid decoding
+        0.0
+    )
+    return energy
 
   @staticmethod
   def compute_factor_energy(
@@ -246,7 +268,7 @@ class PoolFactor(factor.Factor):
           f"with pool choices set to {pool_choices_decoded_states} "
           f"and pool indicators set to {pool_indicators_decoded_states}!"
       )
-      factor_energy = -np.inf
+      factor_energy = np.inf
     else:
       factor_energy = 0.0
     return factor_energy

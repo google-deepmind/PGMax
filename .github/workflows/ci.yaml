@@ -38,7 +38,7 @@ jobs:
         uses: styfle/cancel-workflow-action@0.8.0
         with:
           access_token: ${{ github.token }}
-        if: ${{github.ref != 'refs/head/master'}}
+        if: ${{github.ref != 'refs/head/main'}}
       #----------------------------------------------
       #       check-out repo and set-up python
       #----------------------------------------------
@@ -74,13 +74,6 @@ jobs:
       - name: Test with coverage
         run: |
           pytest --cov=pgmax --cov-report=xml --cov-report=term-missing:skip-covered
-      #----------------------------------------------
-      #      upload coverage report to codecov
-      #----------------------------------------------
-      - name: Upload Coverage to Codecov
-        uses: codecov/codecov-action@v2
-        with:
-          verbose: true # optional (default = false)
       #----------------------------------------------
       #        test docs build only on PR
       #----------------------------------------------

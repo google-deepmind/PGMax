@@ -49,6 +49,13 @@ def test_ising_model():
           variables: jax.device_put(np.random.gumbel(size=(50, 50, 2)))
       }
   )
+
+  # Get the initial energy
+  beliefs = bp.get_beliefs(bp_arrays)
+  map_states = infer.decode_map_states(beliefs)
+  init_energy = infer.compute_energy(fg.bp_state, bp_arrays, map_states)[0]
+
+  # Run BP
   bp_arrays = bp.run_bp(bp_arrays, num_iters=3000)
   beliefs = bp.get_beliefs(bp_arrays)
   map_states = infer.decode_map_states(beliefs)
@@ -60,3 +67,4 @@ def test_ising_model():
       fg.bp_state, bp_arrays, map_states, debug_mode=True
   )[0]
   assert np.allclose(decoding_energy, decoding_energy_debug, atol=5e-6)
+  assert decoding_energy <= init_energy - 1500

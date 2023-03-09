@@ -110,6 +110,7 @@ def test_nd_variable_array():
 
   variable_group0 = vgroup.NDVarArray(shape=(5, 5), num_states=2)
   assert len(variable_group0[:3, :3]) == 9
+  print(variable_group0)
 
   variable_group = vgroup.NDVarArray(
       shape=(2, 2), num_states=np.array([[1, 2], [3, 4]])
@@ -157,4 +158,17 @@ def test_nd_variable_array():
   mask = ~jnp.isnan(unflattened)
   assert jnp.all(
       variable_group.unflatten(np.zeros(10))[mask] == unflattened[mask]
+  )
+
+
+def test_varray_repr():
+  var_array = vgroup.NDVarArray(shape=(0,), num_states=np.zeros((0,), int))
+  assert repr(var_array).startswith("NDVarArray(shape=(0,), num_states=[]")
+
+  var_array = vgroup.NDVarArray(shape=(2,), num_states=np.array([2, 2]))
+  assert repr(var_array).startswith("NDVarArray(shape=(2,), num_states=2")
+
+  var_array = vgroup.NDVarArray(shape=(2,), num_states=np.array([2, 3]))
+  assert repr(var_array).startswith(
+      "NDVarArray(shape=(2,), min_num_states=2, max_num_states=3"
   )

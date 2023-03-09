@@ -45,6 +45,7 @@ class EnumWiring(factor.Wiring):
       Both indices only take into account the EnumFactors of the FactorGraph
 
     num_val_configs: Number of valid configurations for this wiring
+    num_factors: Number of factors covered by this wiring
   """
 
   factor_configs_edge_states: Union[np.ndarray, jnp.ndarray]
@@ -58,6 +59,12 @@ class EnumWiring(factor.Wiring):
       num_val_configs = int(self.factor_configs_edge_states[-1, 0]) + 1
     object.__setattr__(self, "num_val_configs", num_val_configs)
 
+    if self.var_states_for_edges.shape[0] == 0:
+      num_factors = 0
+    else:
+      num_factors = int(self.var_states_for_edges[-1, 2]) + 1
+    object.__setattr__(self, "num_factors", num_factors)
+
   def get_inference_arguments(self) -> Dict[str, Any]:
     """Return the list of arguments to run BP with EnumWirings."""
     assert hasattr(self, "num_val_configs")
@@ -65,6 +72,7 @@ class EnumWiring(factor.Wiring):
         "factor_configs_indices": self.factor_configs_edge_states[..., 0],
         "factor_configs_edge_states": self.factor_configs_edge_states[..., 1],
         "num_val_configs": self.num_val_configs,
+        "num_factors": self.num_factors
     }
 
 
@@ -266,41 +274,49 @@ class EnumFactor(factor.Factor):
     )
 
   @staticmethod
+  @functools.partial(
+      jax.jit, static_argnames=("num_val_configs", "num_factors")
+  )
   def compute_energy(
-      wiring: EnumWiring,
       edge_states_one_hot_decoding: jnp.ndarray,
       log_potentials: jnp.ndarray,
-  ) -> float:
+      factor_configs_indices: jnp.ndarray,
+      factor_configs_edge_states: jnp.ndarray,
+      num_val_configs: int,
+      num_factors: int
+    ) -> float:
     """Returns the contribution to the energy of several EnumFactors.
 
     Args:
-      wiring: The EnumWiring of the EnumFactors
       edge_states_one_hot_decoding: Array of shape (num_edge_states,)
         Flattened array of one-hot decoding of the edge states connected to the
         EnumFactors
       log_potentials: Array of shape (num_val_configs, ). An entry at index i
         is the log potential function value for the configuration with global
         EnumFactor config index i.
+      factor_configs_indices: Array of shape (num_factor_configs,) containing
+        the global EnumFactor config indices.
+        Only takes into account the EnumFactors of the FactorGraph
+      factor_configs_edge_states: Array of shape (num_factor_configs,)
+        containingthe global edge_state index associated with each EnumFactor
+        config index.
+        Only takes into account the EnumFactors of the FactorGraph
+      num_val_configs: the total number of valid configurations for all the
+        EnumFactors in the factor graph.
+      num_factors: the total number of EnumFactors in the factor graph.
     """
-    assert hasattr(wiring, "num_val_configs")
-    num_factors = int(wiring.var_states_for_edges[-1, 2]) + 1
-
     # One-hot decoding of all the factors configs
     fac_config_decoded = (
-        jnp.ones(shape=(wiring.num_val_configs,))
-        .at[wiring.factor_configs_edge_states[..., 0]]
-        .multiply(
-            edge_states_one_hot_decoding[
-                wiring.factor_configs_edge_states[..., 1]
-            ]
-        )
+        jnp.ones(shape=(num_val_configs,))
+        .at[factor_configs_indices]
+        .multiply(edge_states_one_hot_decoding[factor_configs_edge_states])
     )
-    if jnp.sum(fac_config_decoded) != num_factors:
-      # Invalid decoding
-      energy = -jnp.inf
-    else:
-      energy = jnp.sum(fac_config_decoded * log_potentials)
-    return float(energy)
+    energy = jnp.where(
+        jnp.sum(fac_config_decoded) != num_factors,
+        jnp.inf,  # invalid decoding
+        -jnp.sum(fac_config_decoded * log_potentials)
+    )
+    return energy
 
   @staticmethod
   def compute_factor_energy(
@@ -331,12 +347,12 @@ class EnumFactor(factor.Factor):
           f"Invalid decoding for Enum factor {variables} "
           f"with variables set to {vars_decoded_states}!"
       )
-      factor_energy = -np.inf
+      factor_energy = np.inf
     else:
       factor_config_idx = vars_states_to_configs_indices[
           vars_decoded_states
       ]
-      factor_energy = log_potentials[factor_config_idx]
+      factor_energy = -log_potentials[factor_config_idx]
     return float(factor_energy)
 
 
@@ -374,13 +390,17 @@ def _compile_enumeration_wiring_numba(
         )
 
 
-@functools.partial(jax.jit, static_argnames=("num_val_configs", "temperature"))
+# pylint: disable=unused-argument
+@functools.partial(
+    jax.jit, static_argnames=("num_val_configs", "num_factors", "temperature")
+)
 def pass_enum_fac_to_var_messages(
     vtof_msgs: jnp.ndarray,
     factor_configs_indices: jnp.ndarray,
     factor_configs_edge_states: jnp.ndarray,
     log_potentials: jnp.ndarray,
     num_val_configs: int,
+    num_factors: int,
     temperature: float,
 ) -> jnp.ndarray:
   """Passes messages from EnumFactors to Variables.
@@ -410,6 +430,8 @@ def pass_enum_fac_to_var_messages(
 
     num_val_configs: the total number of valid configurations for all the
       EnumFactors in the factor graph.
+
+    num_factors: total number of EnumFactors in the factor graph.
 
     temperature: Temperature for loopy belief propagation. 1.0 corresponds
       to sum-product, 0.0 corresponds to max-product.

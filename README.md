@@ -1,7 +1,6 @@
 [![continuous-integration](https://github.com/deepmind/PGMax/actions/workflows/ci.yaml/badge.svg)](https://github.com/deepmind/PGMax/actions/workflows/ci.yaml)
 [![PyPI version](https://badge.fury.io/py/pgmax.svg)](https://badge.fury.io/py/pgmax)
-[![codecov](https://codecov.io/gh/deepmind/PGMax/branch/master/graph/badge.svg?token=FrRlTDCFjk)](https://codecov.io/gh/deepmind/PGMax)
-[![Documentation Status](https://readthedocs.org/projects/PGMax/badge/?version=latest)](https://pgmax.readthedocs.io/en/latest/?badge=latest)
+[![Documentation Status](https://readthedocs.org/projects/pgmax/badge/?version=latest)](https://pgmax.readthedocs.io/en/latest/?badge=latest)
 
 # PGMax
 

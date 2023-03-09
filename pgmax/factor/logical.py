@@ -291,21 +291,52 @@ class LogicalFactor(factor.Factor):
     )
 
   @staticmethod
+  @jax.jit
   def compute_energy(
-      wiring: LogicalWiring,
       edge_states_one_hot_decoding: jnp.ndarray,
+      parents_factor_indices: jnp.ndarray,
+      parents_msg_indices: jnp.ndarray,
+      children_edge_states: jnp.ndarray,
+      edge_states_offset: int,
       log_potentials: Optional[jnp.ndarray] = None,
   ) -> float:
     """Returns the contribution to the energy of several LogicalFactors.
 
     Args:
-      wiring: The LogicalWiring of the LogicalFactors
       edge_states_one_hot_decoding: Array of shape (num_edge_states,)
         Flattened array of one-hot decoding of the edge states connected to the
         LogicalFactors
+
+      parents_factor_indices: Array of shape (num_parents,)
+        parents_factor_indices[ii] contains the global LogicalFactor index of
+        the parent variable's relevant state.
+        Only takes into account the LogicalFactors of the same subtype (OR/AND)
+        of the FactorGraph
+
+      parents_msg_indices: Array of shape (num_parents,)
+        parents_msg_indices[ii] contains the message index of the parent
+        variable's relevant state.
+        The message index of the parent variable's other state is
+        parents_msg_indices[ii] + edge_states_offset.
+        Only takes into account the LogicalFactors of the same subtype (OR/AND)
+        of the FactorGraph
+
+      children_edge_states: Array of shape (num_factors,)
+        children_edge_states[ii] contains the message index of the child
+        variable's relevant state
+        The message index of the child variable's other state is
+        children_edge_states[ii] + edge_states_offset
+        Only takes into account the LogicalFactors of the same subtype (OR/AND)
+        of the FactorGraph
+
+      edge_states_offset: Offset to go from a variable's relevant state to its
+        other state
+        For ORFactors the edge_states_offset is 1
+        For ANDFactors the edge_states_offset is -1
+
       log_potentials: Optional array of log potentials
     """
-    num_factors = wiring.children_edge_states.shape[0]
+    num_factors = children_edge_states.shape[0]
 
     # parents_edge_states[..., 1] indicates the relevant state,
     # which is 0 for ORFactors and 1 for ANDFactors
@@ -313,20 +344,18 @@ class LogicalFactor(factor.Factor):
     # state, then the child variable must be in the relevant state too
     logical_parents_decoded = (
         jnp.ones(shape=(num_factors,))
-        .at[wiring.parents_edge_states[..., 0]]
-        .multiply(
-            edge_states_one_hot_decoding[
-                wiring.parents_edge_states[..., 1]
-            ]
-        )
+        .at[parents_factor_indices]
+        .multiply(edge_states_one_hot_decoding[parents_msg_indices])
     )
     logical_children_decoded = edge_states_one_hot_decoding[
-        wiring.children_edge_states
+        children_edge_states
     ]
-    if jnp.any(logical_parents_decoded != logical_children_decoded):
-      return -jnp.inf
-    else:
-      return 0.0
+    energy = jnp.where(
+        jnp.any(logical_parents_decoded != logical_children_decoded),
+        jnp.inf,  # invalid decoding
+        0.0
+    )
+    return energy
 
 
 @dataclasses.dataclass(frozen=True, eq=False)
@@ -371,7 +400,7 @@ class ORFactor(LogicalFactor):
           f"with parents set to {parents_decoded_states} "
           f"and child set to {child_decoded_states}!"
       )
-      factor_energy = -np.inf
+      factor_energy = np.inf
     else:
       factor_energy = 0.0
     return factor_energy
@@ -419,7 +448,7 @@ class ANDFactor(LogicalFactor):
           f"with parents set to {parents_decoded_states} "
           f"and child set to {child_decoded_states}!"
       )
-      factor_energy = -np.inf
+      factor_energy = np.inf
     else:
       factor_energy = 0.0
     return factor_energy
