@@ -75,8 +75,7 @@ for [Recursive Cortical Networks](https://www.science.org/doi/10.1126/science.aa
 
 ## Citing PGMax
 
-Please consider citing our [companion paper](https://arxiv.org/abs/2202.04110) if you use PGMax in your work:
-
+Please consider citing our [companion paper](https://arxiv.org/abs/2202.04110)
 ```
 @article{zhou2022pgmax,
   author = {Zhou, Guangyao and Dedieu, Antoine and Kumar, Nishanth and L{\'a}zaro-Gredilla, Miguel and Kushagra, Shrinu and George, Dileep},
@@ -85,6 +84,7 @@ Please consider citing our [companion paper](https://arxiv.org/abs/2202.04110) i
   year={2022}
 }
 ```
+and using the [DeepMind JAX Ecosystem citation](https://github.com/deepmind/jax/blob/main/deepmind2020jax.txt) if you use PGMax in your work.
 
 ## Note
 

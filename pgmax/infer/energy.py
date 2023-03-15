@@ -100,6 +100,8 @@ def compute_energy(
   # Represent the decoding of each variable groups via a one-hot vector
   vgroups_one_hot_decoding = {}
   for variable_group in bp_state.fg_state.variable_groups:
+    if variable_group.num_states.size == 0:
+      continue
     # VarDict will soon inherit from NDVarArray
     assert isinstance(variable_group, vgroup.NDVarArray)
 
