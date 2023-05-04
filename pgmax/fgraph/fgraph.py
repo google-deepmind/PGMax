@@ -22,6 +22,7 @@ import functools
 import types
 from typing import Any, Dict, FrozenSet, List, Mapping, OrderedDict, Sequence, Set, Tuple, Type, Union
 
+import jax.numpy as jnp
 import numpy as np
 from pgmax import factor
 from pgmax import fgroup
@@ -270,9 +271,9 @@ class FactorGraph:
         factors_groups_by_type,
     ) in self._factor_types_to_groups.items():
       if not factors_groups_by_type:
-        log_potentials[factor_type] = np.empty((0,))
+        log_potentials[factor_type] = jnp.empty((0,))
       else:
-        log_potentials[factor_type] = np.concatenate(
+        log_potentials[factor_type] = jnp.concatenate(
             [
                 factor_group.factor_group_log_potentials
                 for factor_group in factors_groups_by_type
@@ -318,7 +319,7 @@ class FactorGraph:
     """Returns the variable index associated with each evidence entry."""
     var_indices = list(self._vars_to_starts.values()) + [self._num_var_states]
 
-    evidence_to_vars = np.zeros((self._num_var_states,))
+    evidence_to_vars = np.zeros((self._num_var_states,), dtype=int)
     for idx_var in range(len(var_indices) - 1):
       var_start, var_stop = var_indices[idx_var], var_indices[idx_var + 1]
       evidence_to_vars[var_start:var_stop] = idx_var
@@ -329,7 +330,7 @@ class FactorGraph:
     """Current factor graph state given the added factors."""
     # Preliminary computations
     self.compute_offsets()
-    log_potentials = np.concatenate(
+    log_potentials = jnp.concatenate(
         [
             self.log_potentials[factor_type]
             for factor_type in self.log_potentials.keys()

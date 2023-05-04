@@ -118,11 +118,16 @@ class VarGroup:
         "Please subclass the VarGroup class and override this method"
     )
 
-  def unflatten(self, flat_data: Union[np.ndarray, jnp.ndarray]) -> Any:
+  def unflatten(
+      self, flat_data: Union[np.ndarray, jnp.ndarray], per_state: bool
+  ) -> Any:
     """Function that recovers meaningful structured data from internal flat data array.
 
     Args:
       flat_data: Internal flat data array.
+      per_state:  If True, the provided data is per state, such as beliefs for
+        every state for every variable.  Alternatively, it is considered to be
+        per variable, such as a MAP decoding.
 
     Returns:
       Meaningful structured data

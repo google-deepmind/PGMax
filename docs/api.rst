@@ -100,14 +100,15 @@ Infer
 .. autosummary::
    bp
    bp_state
+   dual_lp
    energy
+   inferer
 
 bp
 ~~~~~~~~~~~~~
 
 .. autoclass:: BeliefPropagation
 .. autofunction:: BP
-.. autofunction:: decode_map_states
 .. autofunction:: get_marginals
 
 bp_state
@@ -119,10 +120,23 @@ bp_state
 .. autoclass:: Evidence
 .. autoclass:: BPState
 
+dual_lp
+~~~~~~~~~~~~~
+
+.. autoclass:: SmoothDualLP
+.. autofunction:: SDLP
+
 energy
 ~~~~~~~~~~~~~
 
 .. autofunction:: compute_energy
+
+inferer
+~~~~~~~~~~~~~
+
+.. autofunction:: decode_map_states
+.. autoclass:: Inferer
+.. autoclass:: InfererContext
 
 
 Vgroup
@@ -153,3 +167,6 @@ vdict
 Utils
 ===================
 .. automodule:: pgmax.utils
+
+.. autosummary::
+   primal_lp

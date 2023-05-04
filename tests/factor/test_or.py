@@ -51,20 +51,40 @@ def test_run_bp_with_ORFactors():
   Note: for the first seed, add all the EnumFactors to FG1 and all the
     ORFactors to FG2
   """
-  for idx in range(10):
+  for idx in range(16):
     np.random.seed(idx)
 
     # Parameters
-    num_factors = np.random.randint(5, 10)
+    num_factors = np.random.randint(10, 20)
     num_parents = np.random.randint(1, 10, num_factors)
     num_parents_cumsum = np.insert(np.cumsum(num_parents), 0, 0)
 
     # Setting the temperature
-    if idx % 2 == 0:
+    # The efficient message updates for OR/AND factors with linear complexity
+    # comes at the cost of a decrease in computational stability
+    # (1) Larger factors have higher and rarer the errors
+    # (2) Temperature around 0.05 have higher errors
+    if idx % 4 == 0:
       # Max-product
       temperature = 0.0
+      atol = 1e-5
+    elif idx % 4 == 1:
+      # Low temperature are a hard test for stable updates
+      temperature = 0.001
+      # The efficient message updates for OR/AND factors with linear complexity
+      # comes at the cost of a decrease in stability for large factors
+      # and low temperature
+      atol = 5e-3
+    elif idx % 4 == 2:
+      temperature = np.random.uniform(
+          low=0.1, high=factor.logical.TEMPERATURE_STABILITY_THRE
+      )
+      atol = 5e-3
     else:
-      temperature = np.random.uniform(low=0.5, high=1.0)
+      temperature = np.random.uniform(
+          low=factor.logical.TEMPERATURE_STABILITY_THRE, high=1.0
+      )
+      atol = 1e-5
 
     # We create different variables for the 2 FactorGraphs even if
     # we could use the same variables for both graphs
@@ -172,8 +192,8 @@ def test_run_bp_with_ORFactors():
     fg2.add_factors(factor_group)
 
     # Set up inference
-    bp1 = infer.BP(fg1.bp_state, temperature=temperature)
-    bp2 = infer.BP(fg2.bp_state, temperature=temperature)
+    bp1 = infer.build_inferer(fg1.bp_state, backend="bp")
+    bp2 = infer.build_inferer(fg2.bp_state, backend="bp")
 
     # Randomly initialize the evidence
     evidence_parents = jax.device_put(
@@ -208,26 +228,26 @@ def test_run_bp_with_ORFactors():
     bp_arrays1 = bp1.init(
         evidence_updates=evidence_updates1, ftov_msgs_updates=ftov_msgs_updates1
     )
-    bp_arrays1 = bp1.run_bp(bp_arrays1, num_iters=5)
+    bp_arrays1 = bp1.run(bp_arrays1, num_iters=5, temperature=temperature)
     bp_arrays2 = bp2.init(
         evidence_updates=evidence_updates2, ftov_msgs_updates=ftov_msgs_updates2
     )
-    bp_arrays2 = bp2.run_bp(bp_arrays2, num_iters=5)
+    bp_arrays2 = bp2.run(bp_arrays2, num_iters=5, temperature=temperature)
 
     # Get beliefs
     beliefs1 = bp1.get_beliefs(bp_arrays1)
     beliefs2 = bp2.get_beliefs(bp_arrays2)
 
     assert np.allclose(
-        beliefs1[children_variables1], beliefs2[children_variables2], atol=5e-6
+        beliefs1[children_variables1], beliefs2[children_variables2], atol=atol
     )
     assert np.allclose(
-        beliefs1[parents_variables1], beliefs2[parents_variables2], atol=5e-6
+        beliefs1[parents_variables1], beliefs2[parents_variables2], atol=atol
     )
 
     # Get the map states and compare their energies
-    map_states1 = infer.bp.decode_map_states(beliefs1)
-    map_states2 = infer.bp.decode_map_states(beliefs2)
+    map_states1 = infer.decode_map_states(beliefs1)
+    map_states2 = infer.decode_map_states(beliefs2)
 
     energy_decoding1 = infer.compute_energy(
         fg1.bp_state, bp_arrays1, map_states1
@@ -245,20 +265,20 @@ def test_run_bp_with_ORFactors():
             fg2.bp_state, bp_arrays2, map_states2, debug_mode=True
         )
     )
-    assert np.allclose(energy_decoding1, energy_decoding2, atol=5e-6)
-    assert np.allclose(energy_decoding1, energy_decoding1_debug, atol=5e-6)
-    assert np.allclose(energy_decoding2, energy_decoding2_debug, atol=5e-6)
+    assert np.allclose(energy_decoding1, energy_decoding2, atol=atol)
+    assert np.allclose(energy_decoding1, energy_decoding1_debug, atol=atol)
+    assert np.allclose(energy_decoding2, energy_decoding2_debug, atol=atol)
 
     # Also compare the energy of all the individual variables and factors
     for child_idx in range(num_factors):
       var_energy1 = var_energies1[children_variables1[child_idx]]
       var_energy2 = var_energies2[children_variables2[child_idx]]
-      assert np.allclose(var_energy1, var_energy2, atol=5e-6)
+      assert np.allclose(var_energy1, var_energy2, atol=atol)
 
     for parent_idx in range(num_parents_cumsum[-1]):
       var_energy1 = var_energies1[parents_variables1[parent_idx]]
       var_energy2 = var_energies2[parents_variables2[parent_idx]]
-      assert np.allclose(var_energy1, var_energy2, atol=5e-6)
+      assert np.allclose(var_energy1, var_energy2, atol=atol)
 
     for factor_idx in range(num_factors):
       factor_energy1 = factor_energies1[
@@ -267,4 +287,4 @@ def test_run_bp_with_ORFactors():
       factor_energy2 = factor_energies2[
           frozenset(variables_for_factors2[factor_idx])
       ]
-      assert np.allclose(factor_energy1, factor_energy2, atol=5e-6)
+      assert np.allclose(factor_energy1, factor_energy2, atol=atol)

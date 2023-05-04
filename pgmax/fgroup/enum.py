@@ -16,11 +16,10 @@
 
 import collections
 import dataclasses
-from typing import Any, FrozenSet, Optional, OrderedDict, Type, Union
+from typing import Any, FrozenSet, OrderedDict, Optional, Type, Union
 
 import jax
 import jax.numpy as jnp
-import numba as nb
 import numpy as np
 from pgmax import factor
 from pgmax.factor import enum
@@ -52,7 +51,9 @@ class EnumFactorGroup(fgroup.FactorGroup):
   """
 
   factor_configs: np.ndarray
-  log_potentials: Optional[np.ndarray] = None  #: :meta private:
+  log_potentials: Optional[Union[np.ndarray, jnp.ndarray]] = (
+      None  #: :meta private:
+  )
   factor_type: Type[factor.Factor] = dataclasses.field(
       init=False,
       default=enum.EnumFactor,
@@ -76,10 +77,16 @@ class EnumFactorGroup(fgroup.FactorGroup):
             f" {(self.num_factors, num_val_configs)}. Got"
             f" {self.log_potentials.shape}."
         )
-      log_potentials = np.broadcast_to(
-          self.log_potentials,
-          (self.num_factors, num_val_configs),
-      )
+      if isinstance(self.log_potentials, jnp.ndarray):
+        log_potentials = jnp.broadcast_to(
+            self.log_potentials,
+            (self.num_factors, num_val_configs),
+        )
+      else:
+        log_potentials = np.broadcast_to(
+            self.log_potentials,
+            (self.num_factors, num_val_configs),
+        )
 
     if not np.issubdtype(log_potentials.dtype, np.floating):
       raise ValueError(
@@ -99,6 +106,7 @@ class EnumFactorGroup(fgroup.FactorGroup):
       A dictionary mapping all possible set of connected variables to different
       factors.
     """
+    np_array_log_potentials = np.array(self.log_potentials)
     variables_to_factors = collections.OrderedDict(
         [
             (
@@ -106,7 +114,7 @@ class EnumFactorGroup(fgroup.FactorGroup):
                 enum.EnumFactor(
                     variables=variables_for_factor,
                     factor_configs=self.factor_configs,
-                    log_potentials=np.array(self.log_potentials)[ii],
+                    log_potentials=np_array_log_potentials[ii],
                 ),
             )
             for ii, variables_for_factor in enumerate(
@@ -228,7 +236,9 @@ class PairwiseFactorGroup(fgroup.FactorGroup):
           variables in the factors.
   """
 
-  log_potential_matrix: Optional[np.ndarray] = None  #: :meta private:
+  log_potential_matrix: Optional[Union[np.ndarray, jnp.ndarray]] = (
+      None  #: :meta private:
+  )
   factor_type: Type[factor.Factor] = dataclasses.field(
       init=False,
       default=enum.EnumFactor,
@@ -299,15 +309,18 @@ class PairwiseFactorGroup(fgroup.FactorGroup):
     )
     object.__setattr__(self, "factor_configs", factor_configs)
 
-    log_potential_matrix = np.broadcast_to(
-        log_potential_matrix,
-        (len(self.variables_for_factors),) + log_potential_matrix.shape[-2:],
-    )
-    log_potentials = np.empty((self.num_factors, self.factor_configs.shape[0]))
-    _compute_log_potentials(
-        log_potentials,
-        log_potential_matrix,
-        self.factor_configs,
+    if isinstance(log_potential_matrix, jnp.ndarray):
+      log_potential_matrix = jnp.broadcast_to(
+          log_potential_matrix,
+          (len(self.variables_for_factors),) + log_potential_matrix.shape[-2:],
+      )
+    else:
+      log_potential_matrix = np.broadcast_to(
+          log_potential_matrix,
+          (len(self.variables_for_factors),) + log_potential_matrix.shape[-2:],
+      )
+    log_potentials = log_potential_matrix.reshape(
+        log_potential_matrix.shape[0], -1
     )
     object.__setattr__(self, "log_potentials", log_potentials)
 
@@ -420,22 +433,3 @@ class PairwiseFactorGroup(fgroup.FactorGroup):
       )
 
     return data
-
-
-# pylint: disable=g-doc-args
-@nb.jit(parallel=False, cache=True, fastmath=True, nopython=True)
-def _compute_log_potentials(
-    log_potentials: np.ndarray,
-    log_potential_matrix: np.ndarray,
-    factor_configs: np.ndarray,
-):
-  """Fast numba computation of the log_potentials of a PairwiseFactorGroup.
-
-  log_potentials is updated in-place.
-  """
-
-  for config_idx in range(factor_configs.shape[0]):
-    aux = log_potential_matrix[
-        :, factor_configs[config_idx, 0], factor_configs[config_idx, 1]
-    ]
-    log_potentials[:, config_idx] = aux

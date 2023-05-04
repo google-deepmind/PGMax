@@ -17,11 +17,25 @@
 
 from pgmax.infer.bp import BeliefPropagation
 from pgmax.infer.bp import BP
-from pgmax.infer.bp import decode_map_states
 from pgmax.infer.bp import get_marginals
 from pgmax.infer.bp_state import BPArrays
 from pgmax.infer.bp_state import BPState
 from pgmax.infer.bp_state import Evidence
 from pgmax.infer.bp_state import FToVMessages
 from pgmax.infer.bp_state import LogPotentials
+from pgmax.infer.dual_lp import SDLP
+from pgmax.infer.dual_lp import SmoothDualLP
 from pgmax.infer.energy import compute_energy
+from pgmax.infer.inferer import decode_map_states
+from pgmax.infer.inferer import Inferer
+from pgmax.infer.inferer import InfererContext
+
+
+def build_inferer(bp_state: BPState, backend: str) -> Inferer:
+  """Build a supported inferer."""
+  if backend == "bp":
+    return BP(bp_state)
+  elif backend == "sdlp":
+    return SDLP(bp_state)
+  else:
+    raise NotImplementedError(f"Inferer {backend} is not supported.")

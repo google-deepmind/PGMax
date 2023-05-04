@@ -57,14 +57,14 @@ def test_variable_dict():
   with pytest.raises(
       ValueError, match="Can only unflatten 1D array. Got a 2D array."
   ):
-    variable_dict.unflatten(jnp.zeros((10, 20)))
+    variable_dict.unflatten(jnp.zeros((10, 20)), True)
 
   assert jnp.all(
       jnp.array(
           jax.tree_util.tree_leaves(
               jax.tree_util.tree_map(
                   lambda x, y: jnp.all(x == y),
-                  variable_dict.unflatten(jnp.zeros(3)),
+                  variable_dict.unflatten(jnp.zeros(3), False),
                   {name: np.zeros(1) for name in range(3)},
               )
           )
@@ -73,11 +73,18 @@ def test_variable_dict():
   with pytest.raises(
       ValueError,
       match=re.escape(
-          "flat_data should be either of shape (num_variables(=3),), or"
-          " (num_variable_states(=45),)"
+          "flat_data should be shape (num_variable_states(=45),). Got (100,)"
       ),
   ):
-    variable_dict.unflatten(jnp.zeros((100)))
+    variable_dict.unflatten(jnp.zeros((100)), True)
+
+  with pytest.raises(
+      ValueError,
+      match=re.escape(
+          "flat_data should be shape (num_variables(=3),). Got (100,)"
+      ),
+  ):
+    variable_dict.unflatten(jnp.zeros((100)), False)
 
 
 def test_nd_variable_array():
@@ -139,17 +146,23 @@ def test_nd_variable_array():
   with pytest.raises(
       ValueError, match="Can only unflatten 1D array. Got a 2D array."
   ):
-    variable_group.unflatten(np.zeros((10, 20)))
+    variable_group.unflatten(np.zeros((10, 20)), True)
 
   with pytest.raises(
       ValueError,
-      match=re.escape(
-          "flat_data size should be equal to 4 or to 10. Got size 12."
-      ),
+      match=re.escape("flat_data size should be equal to 10. Got size 12."),
   ):
-    variable_group.unflatten(np.zeros((12,)))
+    variable_group.unflatten(np.zeros((12,)), True)
 
-  assert jnp.all(variable_group.unflatten(np.zeros(4)) == jnp.zeros((2, 2)))
+  with pytest.raises(
+      ValueError,
+      match=re.escape("flat_data size should be equal to 4. Got size 12."),
+  ):
+    variable_group.unflatten(np.zeros((12,)), False)
+
+  assert jnp.all(
+      variable_group.unflatten(np.zeros(4), False) == jnp.zeros((2, 2))
+  )
   unflattened = jnp.full((2, 2, 4), fill_value=jnp.nan)
   unflattened = unflattened.at[0, 0, 0].set(0)
   unflattened = unflattened.at[0, 1, :1].set(0)
@@ -157,7 +170,7 @@ def test_nd_variable_array():
   unflattened = unflattened.at[1, 1].set(0)
   mask = ~jnp.isnan(unflattened)
   assert jnp.all(
-      variable_group.unflatten(np.zeros(10))[mask] == unflattened[mask]
+      variable_group.unflatten(np.zeros(10), True)[mask] == unflattened[mask]
   )
 
 

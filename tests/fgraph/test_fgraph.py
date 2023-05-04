@@ -58,7 +58,7 @@ def test_factor_graph():
   factor_group = fgroup.EnumFactorGroup(
       variables_for_factors=[[vg[0]]],
       factor_configs=np.arange(15)[:, None],
-      log_potentials=np.zeros(15),
+      log_potentials=jnp.zeros(15),
   )
   with pytest.raises(
       ValueError,
@@ -154,7 +154,9 @@ def test_ftov_msgs():
 
   with pytest.raises(
       ValueError,
-      match=re.escape("Provided variable is not in the FactorGraph"),
+      match=re.escape(
+          "Provided variable or factor type is not in the FactorGraph"
+      ),
   ):
     fg.bp_state.ftov_msgs[0] = np.ones(10)
 
@@ -178,6 +180,19 @@ def test_ftov_msgs():
   ):
     _ = ftov_msgs[(10,)]
 
+  with pytest.raises(
+      ValueError,
+      match=re.escape(
+          f"Expected ftov_msgs shape (15,) for factor type {factor.EnumFactor}."
+          " Got incompatible shape (10,)."
+      ),
+  ):
+    infer.bp_state.update_ftov_msgs(
+        jax.device_put(ftov_msgs.value),
+        {factor.EnumFactor: jax.device_put(np.zeros(10))},
+        fg.fg_state,
+    )
+
 
 def test_evidence():
   """Test the correct implementation of evidence."""
@@ -199,7 +214,9 @@ def test_evidence():
   ):
     infer.Evidence(
         fg_state=fg.fg_state,
-        value=np.zeros(20,)
+        value=np.zeros(
+            20,
+        ),
     )
 
   with pytest.raises(
@@ -211,13 +228,7 @@ def test_evidence():
   ):
     infer.bp_state.update_evidence(
         jax.device_put(evidence.value),
-        {
-            vg[0]: jax.device_put(
-                np.zeros(
-                    10,
-                )
-            )
-        },
+        {vg[0]: jax.device_put(np.zeros(10))},
         fg.fg_state,
     )
 
@@ -236,7 +247,7 @@ def test_evidence():
 
 
 def test_bp():
-  """Test running belief propagation."""
+  """Test running belief propagation with the old and new interfaces."""
   vg = vgroup.VarDict(variable_names=(0,), num_states=15)
   fg = fgraph.FactorGraph(vg)
   factor_group = fgroup.EnumFactorGroup(
@@ -245,13 +256,25 @@ def test_bp():
   )
   fg.add_factors(factor_group)
 
-  bp = infer.BP(fg.bp_state, temperature=0)
-  bp_arrays = bp.update()
-  bp_arrays = bp.update(
-      bp_arrays=bp_arrays,
+  vdict_evidence = {
+      var: np.random.gumbel(size=(var[1],)) for var in vg.variables
+  }
+
+  bp = infer.build_inferer(fg.bp_state, backend="bp")
+  init_bp_arrays = bp.update()
+  init_bp_arrays = bp.update(
+      bp_arrays=init_bp_arrays,
       log_potentials_updates={factor_group: np.ones(10)},
+      evidence_updates=vdict_evidence,
   )
-  bp_arrays = bp.run_bp(bp_arrays, num_iters=1)
+  bp_arrays = bp.run(init_bp_arrays, num_iters=10, temperature=1.0)
+
+  # Test the old interface
+  old_bp = infer.BP(fg.bp_state, temperature=1.0)
+  old_bp_arrays = old_bp.run_bp(init_bp_arrays, num_iters=10)
+  assert np.allclose(bp_arrays.ftov_msgs, old_bp_arrays.ftov_msgs)
+  assert np.allclose(bp_arrays.ftov_msgs, old_bp_arrays.ftov_msgs)
+
   bp_arrays = dataclasses.replace(bp_arrays, log_potentials=jnp.zeros((10,)))
   bp_state = bp.to_bp_state(bp_arrays)
   assert bp_state.fg_state == fg.fg_state
@@ -282,7 +305,7 @@ def test_bp_different_num_states():
     fg.add_factors(enum_factor)
 
   # BP functions
-  bp = infer.BP(fg.bp_state, temperature=0)
+  bp = infer.build_inferer(fg.bp_state, backend="bp")
 
   # Evidence for both VarDict and NDVarArray
   vdict_evidence = {
@@ -298,7 +321,7 @@ def test_bp_different_num_states():
   assert np.all(bp_arrays.evidence != 0)
 
   # Run BP
-  bp_arrays = bp.run_bp(bp_arrays, num_iters=50)
+  bp_arrays = bp.run(bp_arrays, num_iters=50, temperature=0.0)
   beliefs = bp.get_beliefs(bp_arrays)
   map_states = infer.decode_map_states(beliefs)
 

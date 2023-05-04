@@ -41,6 +41,8 @@ def get_vars_to_map_states(
   """
   vars_to_map_states = {}
   for variable_group, vg_map_states in map_states.items():
+    if np.prod(variable_group.shape) == 0:  # Skip empty variable groups
+      continue
     vg_map_states_flat = variable_group.flatten(vg_map_states)
     vars_to_map_states.update(
         zip(variable_group.variables, list(np.array(vg_map_states_flat)))
@@ -175,7 +177,7 @@ def _compute_energy_debug_mode(
   vars_to_map_states = get_vars_to_map_states(map_states)
 
   # Step 1: compute the contribution of each variable to the energy
-  evidence = Evidence(bp_state.fg_state, value=bp_arrays.evidence)
+  evidence = Evidence(bp_state.fg_state, value=np.array(bp_arrays.evidence))
   for variable_group in bp_state.fg_state.variable_groups:
     for var in variable_group.variables:
       var_decoded_state = int(vars_to_map_states[var])

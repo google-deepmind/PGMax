@@ -24,6 +24,7 @@ import jax.numpy as jnp
 import numpy as np
 from pgmax.factor import factor
 from pgmax.factor import logical
+from pgmax.factor import update_utils
 from pgmax.utils import NEG_INF
 
 
@@ -275,13 +276,14 @@ class PoolFactor(factor.Factor):
 
 
 # pylint: disable=unused-argument
-@functools.partial(jax.jit, static_argnames="temperature")
+@functools.partial(jax.jit, static_argnames=("temperature", "normalize"))
 def pass_pool_fac_to_var_messages(
     vtof_msgs: jnp.ndarray,
     pool_choices_factor_indices: jnp.ndarray,
     pool_choices_msg_indices: jnp.ndarray,
     pool_indicators_edge_states: jnp.ndarray,
     temperature: float,
+    normalize: bool,
     log_potentials: Optional[jnp.ndarray] = None,
 ) -> jnp.ndarray:
   """Passes messages from PoolFactors to Variables.
@@ -312,106 +314,164 @@ def pass_pool_fac_to_var_messages(
     temperature: Temperature for loopy belief propagation. 1.0 corresponds to
       sum-product, 0.0 corresponds to max-product.
 
+    normalize: Whether we normalize the outgoing messages. Set to True for BP
+      and to False for Smooth Dual LP.
+
     log_potentials: Optional array of log potentials
 
   Returns:
     Array of shape (num_edge_states,). This holds all the flattened PoolFactors
     to variable messages.
+
+  Note: The updates below are derived to be mathematically stable at low
+    temperatures in (0, 0.1].
+    logaddexp_with_temp, logminusexp_with_temp and logsumexps_with_temp are also
+    derived to be numerically stable at these low temperatures.
   """
   num_factors = pool_indicators_edge_states.shape[0]
 
-  pool_choices_tof_msgs = (
+  pool_choices_tof_msgs_diffs = (
       vtof_msgs[pool_choices_msg_indices + 1]
       - vtof_msgs[pool_choices_msg_indices]
   )
-  pool_indicators_tof_msgs = (
+  pool_choices_tof_msgs_zeros = vtof_msgs[pool_choices_msg_indices]
+
+  pool_indicators_tof_msgs_diffs = (
       vtof_msgs[pool_indicators_edge_states + 1]
       - vtof_msgs[pool_indicators_edge_states]
   )
+  pool_indicators_tof_msgs_ones = vtof_msgs[pool_indicators_edge_states + 1]
 
-  pool_choices_maxes, pool_choices_argmaxes = logical.get_maxes_and_argmaxes(
-      pool_choices_tof_msgs, pool_choices_factor_indices, num_factors
+  # First, get the easier outgoing messages to pool choices and pool indicators
+  sums_pool_choices_tof_msgs_zeros = (
+      jnp.zeros((num_factors,))
+      .at[pool_choices_factor_indices]
+      .add(pool_choices_tof_msgs_zeros)
+  )
+  pool_choices_msgs_ones = (
+      sums_pool_choices_tof_msgs_zeros[pool_choices_factor_indices]
+      + pool_indicators_tof_msgs_ones[pool_choices_factor_indices]
+      - pool_choices_tof_msgs_zeros
+  )
+  pool_indicators_msgs_zeros = sums_pool_choices_tof_msgs_zeros
+
+  # Second derive the other outgoing messages
+  # Get the maxes and argmaxes of pool_choices_tof_msgs_diffs per factor
+  (
+      pool_choices_diffs_maxes,
+      pool_choices_diffs_argmaxes,
+  ) = update_utils.get_maxes_and_argmaxes(
+      pool_choices_tof_msgs_diffs, pool_choices_factor_indices, num_factors
   )
 
   # Consider the max-product case separately.
   if temperature == 0.0:
-    # Get the first and second pool choice argmaxes per factor
-    pool_choices_wo_maxes = pool_choices_tof_msgs.at[pool_choices_argmaxes].set(
-        NEG_INF
-    )
-
-    pool_choices_second_maxes = (
+    # Get the second maxes and argmaxes per factor
+    pool_choices_diffs_wo_maxes = pool_choices_tof_msgs_diffs.at[
+        pool_choices_diffs_argmaxes
+    ].set(NEG_INF)
+    pool_choices_diffs_second_maxes = (
         jnp.full(shape=(num_factors,), fill_value=NEG_INF)
         .at[pool_choices_factor_indices]
-        .max(pool_choices_wo_maxes)
+        .max(pool_choices_diffs_wo_maxes)
     )
 
-    # Compute the maximum of the incoming messages without self
-    pool_choices_maxes_wo_self = pool_choices_maxes[
-        pool_choices_factor_indices
-    ]
-    pool_choices_maxes_wo_self = pool_choices_maxes_wo_self.at[
-        pool_choices_argmaxes
-    ].set(pool_choices_second_maxes)
+    # Get the difference between the outgoing messages
+    pool_choices_msgs_diffs = jnp.minimum(
+        pool_indicators_tof_msgs_diffs, -pool_choices_diffs_maxes
+    )[pool_choices_factor_indices]
 
-    # Get the outgoing messages
-    pool_choices_msgs = jnp.minimum(
-        pool_indicators_tof_msgs[pool_choices_factor_indices],
-        -pool_choices_maxes_wo_self,
+    pool_choices_msgs_diffs = pool_choices_msgs_diffs.at[
+        pool_choices_diffs_argmaxes
+    ].set(
+        jnp.minimum(
+            pool_indicators_tof_msgs_diffs, -pool_choices_diffs_second_maxes,
+        )
     )
-    pool_indicators_msgs = pool_choices_maxes
+    pool_indicators_msgs_diffs = pool_choices_diffs_maxes
 
   else:
-    exp_pool_choices_wo_maxes = jnp.exp(
-        (
-            pool_choices_tof_msgs
-            - pool_choices_maxes[pool_choices_factor_indices]
-        )
-        / temperature
-    )
-    exp_minus_parents_wo_maxes = jnp.exp(
-        -(pool_indicators_tof_msgs + pool_choices_maxes) / temperature
+    # Stable difference between the pool indicators outgoing messages
+    pool_indicators_msgs_diffs = update_utils.logsumexps_with_temp(
+        data=pool_choices_tof_msgs_diffs,
+        labels=pool_choices_factor_indices,
+        num_labels=num_factors,
+        temperature=temperature,
+        maxes=pool_choices_diffs_maxes
     )
 
-    sum_exp_pool_choices_wo_maxes = (
-        jnp.zeros((num_factors,))
-        .at[pool_choices_factor_indices]
-        .add(exp_pool_choices_wo_maxes)
-    )
-    sum_exp_pool_choices_wo_maxes_wo_self = (
-        sum_exp_pool_choices_wo_maxes[pool_choices_factor_indices]
-        - exp_pool_choices_wo_maxes
+    factor_logsumexp_msgs_diffs = update_utils.logaddexp_with_temp(
+        pool_indicators_msgs_diffs,
+        -pool_indicators_tof_msgs_diffs,
+        temperature
     )
 
-    # Get the outgoing messages
-    pool_choices_msgs = -pool_choices_maxes[
-        pool_choices_factor_indices
-    ] - temperature * jnp.log(
-        sum_exp_pool_choices_wo_maxes_wo_self
-        + exp_minus_parents_wo_maxes[pool_choices_factor_indices]
-    )
-    pool_indicators_msgs = pool_choices_maxes + temperature * jnp.log(
-        sum_exp_pool_choices_wo_maxes
+    # Stable difference between the pool choices outgoing messages
+    # Except for the pool_choices_tof_msgs_diffs argmaxes
+    pool_choices_msgs_diffs = - update_utils.logminusexp_with_temp(
+        factor_logsumexp_msgs_diffs[pool_choices_factor_indices],
+        pool_choices_tof_msgs_diffs,
+        temperature,
     )
 
-  # Special case: factors with a single parent
+    # pool_choices_msgs_diffs above is not numerically stable for the
+    # pool_choices_diffs_argmaxes. The stable update is derived below
+    pool_choices_indicators_diffs = pool_choices_tof_msgs_diffs.at[
+        pool_choices_diffs_argmaxes
+    ].set(-pool_indicators_tof_msgs_diffs)
+
+    pool_choices_msgs_diffs_argmaxes = - update_utils.logsumexps_with_temp(
+        data=pool_choices_indicators_diffs,
+        labels=pool_choices_factor_indices,
+        num_labels=num_factors,
+        temperature=temperature,
+    )
+    pool_choices_msgs_diffs = pool_choices_msgs_diffs.at[
+        pool_choices_diffs_argmaxes
+    ].set(pool_choices_msgs_diffs_argmaxes)
+
+  # Special case: factors with a single pool choice
   num_pool_choices = jnp.bincount(
       pool_choices_factor_indices, length=num_factors
   )
   first_pool_choices = jnp.concatenate(
       [jnp.zeros(1, dtype=int), jnp.cumsum(num_pool_choices)]
   )[:-1]
-  pool_choices_msgs = pool_choices_msgs.at[first_pool_choices].set(
+  pool_choices_msgs_diffs = pool_choices_msgs_diffs.at[first_pool_choices].set(
       jnp.where(
           num_pool_choices == 1,
-          pool_indicators_tof_msgs,
-          pool_choices_msgs[first_pool_choices],
+          pool_indicators_tof_msgs_diffs,
+          pool_choices_msgs_diffs[first_pool_choices],
+      ),
+  )
+  pool_choices_msgs_ones = pool_choices_msgs_ones.at[first_pool_choices].set(
+      jnp.where(
+          num_pool_choices == 1,
+          pool_indicators_tof_msgs_ones,
+          pool_choices_msgs_ones[first_pool_choices],
       ),
   )
 
+  # Outgoing messages
   ftov_msgs = jnp.zeros_like(vtof_msgs)
-  ftov_msgs = ftov_msgs.at[pool_choices_msg_indices + 1].set(pool_choices_msgs)
-  ftov_msgs = ftov_msgs.at[pool_indicators_edge_states + 1].set(
-      pool_indicators_msgs
-  )
+  if normalize:
+    ftov_msgs = ftov_msgs.at[pool_choices_msg_indices + 1].set(
+        pool_choices_msgs_diffs
+    )
+    ftov_msgs = ftov_msgs.at[pool_indicators_edge_states + 1].set(
+        pool_indicators_msgs_diffs
+    )
+  else:
+    ftov_msgs = ftov_msgs.at[pool_choices_msg_indices + 1].set(
+        pool_choices_msgs_ones
+    )
+    ftov_msgs = ftov_msgs.at[pool_choices_msg_indices].set(
+        pool_choices_msgs_ones - pool_choices_msgs_diffs
+    )
+    ftov_msgs = ftov_msgs.at[pool_indicators_edge_states + 1].set(
+        pool_indicators_msgs_zeros + pool_indicators_msgs_diffs
+    )
+    ftov_msgs = ftov_msgs.at[pool_indicators_edge_states].set(
+        pool_indicators_msgs_zeros
+    )
   return ftov_msgs

@@ -25,6 +25,7 @@ import jax.numpy as jnp
 import numba as nb
 import numpy as np
 from pgmax.factor import factor
+from pgmax.factor import update_utils
 from pgmax.utils import NEG_INF
 
 
@@ -307,14 +308,22 @@ class EnumFactor(factor.Factor):
     """
     # One-hot decoding of all the factors configs
     fac_config_decoded = (
-        jnp.ones(shape=(num_val_configs,))
+        jnp.ones(shape=(num_val_configs,), dtype=bool)
         .at[factor_configs_indices]
         .multiply(edge_states_one_hot_decoding[factor_configs_edge_states])
     )
+
+    # Replace infinite log potentials
+    clipped_nan_log_potentials = jnp.where(
+        jnp.logical_and(jnp.isinf(log_potentials), fac_config_decoded != 1),
+        -NEG_INF * jnp.sign(log_potentials),
+        log_potentials,
+    )
+
     energy = jnp.where(
         jnp.sum(fac_config_decoded) != num_factors,
         jnp.inf,  # invalid decoding
-        -jnp.sum(fac_config_decoded * log_potentials)
+        -jnp.sum(clipped_nan_log_potentials, where=fac_config_decoded),
     )
     return energy
 
@@ -402,6 +411,7 @@ def pass_enum_fac_to_var_messages(
     num_val_configs: int,
     num_factors: int,
     temperature: float,
+    normalize: bool
 ) -> jnp.ndarray:
   """Passes messages from EnumFactors to Variables.
 
@@ -436,6 +446,9 @@ def pass_enum_fac_to_var_messages(
     temperature: Temperature for loopy belief propagation. 1.0 corresponds
       to sum-product, 0.0 corresponds to max-product.
 
+    normalize: Whether we normalize the outgoing messages. Not used for
+      EnumFactors.
+
   Returns:
     Array of shape (num_edge_states,). This holds all the flattened
     EnumFactors to variable messages.
@@ -446,30 +459,20 @@ def pass_enum_fac_to_var_messages(
       .add(vtof_msgs[factor_configs_edge_states])
   ) + log_potentials
   max_factor_config_summary_for_edge_states = (
-      jnp.full(shape=(vtof_msgs.shape[0],), fill_value=NEG_INF)
+      jnp.full(shape=(vtof_msgs.shape[0],), fill_value=-jnp.inf)
       .at[factor_configs_edge_states]
       .max(fac_config_summary_sum[factor_configs_indices])
   )
-  ftov_msgs = max_factor_config_summary_for_edge_states
 
-  if temperature != 0.0:
-    ftov_msgs = ftov_msgs + (
-        temperature
-        * jnp.log(
-            jnp.zeros((vtof_msgs.shape[0],))
-            .at[factor_configs_edge_states]
-            .add(
-                jnp.exp(
-                    (
-                        fac_config_summary_sum[factor_configs_indices]
-                        - max_factor_config_summary_for_edge_states[
-                            factor_configs_edge_states
-                        ]
-                    )
-                    / temperature
-                )
-            )
-        )
+  if temperature == 0.0:
+    ftov_msgs = max_factor_config_summary_for_edge_states
+  else:
+    ftov_msgs = update_utils.logsumexps_with_temp(
+        data=fac_config_summary_sum[factor_configs_indices],
+        labels=factor_configs_edge_states,
+        num_labels=vtof_msgs.shape[0],
+        temperature=temperature,
+        maxes=max_factor_config_summary_for_edge_states
     )
 
   # Remove incoming messages

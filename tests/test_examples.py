@@ -14,7 +14,6 @@
 
 """Test running inference with PGMax in some simple models."""
 
-import jax
 import numpy as np
 from pgmax import fgraph
 from pgmax import fgroup
@@ -42,12 +41,10 @@ def test_ising_model():
   fg.add_factors(factor_group)
 
   # Run inference
-  bp = infer.BP(fg.bp_state, temperature=0)
+  bp = infer.build_inferer(fg.bp_state, backend="bp")
 
   bp_arrays = bp.init(
-      evidence_updates={
-          variables: jax.device_put(np.random.gumbel(size=(50, 50, 2)))
-      }
+      evidence_updates={variables: np.random.gumbel(size=(50, 50, 2))}
   )
 
   # Get the initial energy
@@ -56,7 +53,7 @@ def test_ising_model():
   init_energy = infer.compute_energy(fg.bp_state, bp_arrays, map_states)[0]
 
   # Run BP
-  bp_arrays = bp.run_bp(bp_arrays, num_iters=3000)
+  bp_arrays = bp.run(bp_arrays, num_iters=3000, temperature=0)
   beliefs = bp.get_beliefs(bp_arrays)
   map_states = infer.decode_map_states(beliefs)
   assert map_states[variables].shape == (50, 50)

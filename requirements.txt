@@ -20,3 +20,4 @@ sphinx-book-theme>=0.3.3
 pytest-cov>=2.12.1
 tensorflow_datasets>=4.6.0
 tensorflow>=2.9.1
+cvxpy>=1.2.0

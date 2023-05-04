@@ -126,18 +126,21 @@ class VarDict(vgroup.VarGroup):
     return flat_data
 
   def unflatten(
-      self, flat_data: Union[np.ndarray, jnp.ndarray]
+      self, flat_data: Union[np.ndarray, jnp.ndarray], per_state: bool
   ) -> Dict[Hashable, Union[np.ndarray, jnp.ndarray]]:
     """Function that recovers meaningful structured data from internal flat data array.
 
     Args:
       flat_data: Internal flat data array.
+      per_state:  If True, the provided data is per state, such as beliefs
+        for every state for every variable.  Alternatively, it is considered to
+        be per variable, such as a MAP decoding.
 
     Returns:
       Meaningful structured data.
       Should be a mapping with names from self.variable_names.
       Each value should be an array of shape (1,) (for e.g. MAP decodings) or
-      (self.num_states,) (for e.g. evidence, beliefs).
+      (self.num_states,) (for e.g. evidence, beliefs) depending on per_state
 
     Raises:
       ValueError if:
@@ -153,19 +156,14 @@ class VarDict(vgroup.VarGroup):
 
     num_variables = len(self.variable_names)
     num_variable_states = self.num_states.sum()
-    if flat_data.shape[0] == num_variables:
-      use_num_states = False
-    elif flat_data.shape[0] == num_variable_states:
-      use_num_states = True
-    else:
-      raise ValueError(
-          "flat_data should be either of shape"
-          f" (num_variables(={len(self.variables)}),), or"
-          f" (num_variable_states(={num_variable_states}),). Got"
-          f" {flat_data.shape}"
-      )
 
-    if use_num_states:
+    if per_state:
+      if flat_data.shape[0] != num_variable_states:
+        raise ValueError(
+            "flat_data should be shape "
+            f"(num_variable_states(={num_variable_states}),). Got "
+            f"{flat_data.shape}"
+        )
       # Check whether all the variables have the same number of states
       if np.all(self.num_states == self.num_states[0]):
         data = dict(
@@ -180,6 +178,12 @@ class VarDict(vgroup.VarGroup):
         data = dict(zip(self.variable_names, var_states))
 
     else:
+      if flat_data.shape[0] != num_variables:
+        raise ValueError(
+            "flat_data should be shape "
+            f"(num_variables(={len(self.variables)}),). Got "
+            f"{flat_data.shape}"
+        )
       data = dict(zip(self.variable_names, flat_data))
 
     return data

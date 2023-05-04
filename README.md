@@ -68,10 +68,12 @@ to install JAX for GPU.
 Here are a few self-contained Colab notebooks to help you get started on using PGMax:
 
 - [Tutorial on basic PGMax usage](https://colab.research.google.com/github/deepmind/PGMax/blob/master/examples/rbm.ipynb)
+- [LBP inference on Ising model](https://colab.research.google.com/github/deepmind/PGMax/blob/master/examples/ising_model.ipynb)
 - [Implementing max-product LBP](https://colab.research.google.com/github/deepmind/PGMax/blob/master/examples/rcn.ipynb)
 for [Recursive Cortical Networks](https://www.science.org/doi/10.1126/science.aag2612)
 - [End-to-end differentiable LBP for gradient-based PGM training](https://colab.research.google.com/github/deepmind/PGMax/blob/master/examples/gmrf.ipynb)
 - [2D binary deconvolution](https://colab.research.google.com/github/deepmind/PGMax/blob/master/examples/pmp_binary_deconvolution.ipynb)
+- [Alternative inference with Smooth Dual LP-MAP](https://colab.research.google.com/github/deepmind/PGMax/blob/master/examples/sdlp_examples.ipynb)
 
 ## Citing PGMax
 

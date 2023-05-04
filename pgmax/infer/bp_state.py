@@ -1,5 +1,5 @@
 # Copyright 2022 Intrinsic Innovation LLC.
-# Copyright 2022 DeepMind Technologies Limited.
+# Copyright 2023 DeepMind Technologies Limited.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -58,10 +58,10 @@ class BPArrays:
 @functools.partial(jax.jit, static_argnames="fg_state")
 def update_log_potentials(
     log_potentials: jnp.ndarray,
-    updates: Dict[Any, jnp.ndarray],
+    updates: Dict[Any, jax.typing.ArrayLike],
     fg_state: fgraph.FactorGraphState,
 ) -> jnp.ndarray:
-  """Function to update log_potentials.
+  """Returns new log_potentials with updates for a set of factor groups.
 
   Args:
     log_potentials: A flat jnp array containing log_potentials.
@@ -76,9 +76,9 @@ def update_log_potentials(
         log_potentials shape.
     (2) Provided name is not valid for log_potentials updates.
   """
-  # Clip updates to not have infinite values
+  # Copy to device and clip updates to not have infinite values
   updates = jax.tree_util.tree_map(
-      lambda x: jnp.clip(x, NEG_INF, -NEG_INF), updates
+      lambda x: jnp.clip(jax.device_put(x), NEG_INF, -NEG_INF), updates
   )
 
   for factor_group, data in updates.items():
@@ -148,7 +148,7 @@ class LogPotentials:
   def __setitem__(
       self,
       factor_group: fgroup.FactorGroup,
-      data: Union[np.ndarray, jnp.ndarray],
+      data: jax.typing.ArrayLike,
   ):
     """Set the log potentials for a FactorGroup.
 
@@ -172,14 +172,15 @@ class LogPotentials:
 @functools.partial(jax.jit, static_argnames="fg_state")
 def update_ftov_msgs(
     ftov_msgs: jnp.ndarray,
-    updates: Dict[Any, jnp.ndarray],
+    updates: Dict[Any, jax.typing.ArrayLike],
     fg_state: fgraph.FactorGraphState,
 ) -> jnp.ndarray:
-  """Function to update ftov_msgs.
+  """Returns new ftov_msgs with updates for a set of variables or factor types.
 
   Args:
     ftov_msgs: A flat jnp array containing ftov_msgs.
-    updates: A dictionary containing updates for ftov_msgs
+    updates: A dictionary mapping the variables or the factor types to their
+      ftov_msgs updates
     fg_state: Factor graph state
 
   Returns:
@@ -187,19 +188,29 @@ def update_ftov_msgs(
 
   Raises: ValueError if:
     (1) provided ftov_msgs shape does not match the expected ftov_msgs shape.
-    (2) provided variable is not in the FactorGraph.
+    (2) provided variable or factor type is not in the FactorGraph.
   """
-  # Clip updates to not have infinite values
+  # Copy to device and clip updates to not have infinite values
   updates = jax.tree_util.tree_map(
-      lambda x: jnp.clip(x, NEG_INF, -NEG_INF), updates
+      lambda x: jnp.clip(jax.device_put(x), NEG_INF, -NEG_INF), updates
   )
 
-  for variable, data in updates.items():
-    if variable in fg_state.vars_to_starts:
-      if data.shape != (variable[1],):
+  for name, data in updates.items():
+    if name in fg_state.factor_type_to_msgs_range:
+      msgs_start, msgs_end = fg_state.factor_type_to_msgs_range[name]
+      if data.shape != (msgs_end - msgs_start,):
         raise ValueError(
-            f"Expected ftov_msgs shape {(variable[1],)} for variable "
-            f"{variable}. Got incompatible shape {data.shape}."
+            f"Expected ftov_msgs shape {(msgs_end - msgs_start,)}"
+            f" for factor type {name}. Got incompatible shape {data.shape}."
+        )
+      ftov_msgs = ftov_msgs.at[msgs_start:msgs_end].set(data)
+
+    elif name in fg_state.vars_to_starts:
+      num_var_states = name[1]
+      if data.shape != (num_var_states,):
+        raise ValueError(
+            f"Expected ftov_msgs shape {(num_var_states,)} for variable {name}."
+            f" Got incompatible shape {data.shape}."
         )
 
       var_states_for_edge_states = np.concatenate(
@@ -208,16 +219,18 @@ def update_ftov_msgs(
               for wiring_by_type in fg_state.wiring.values()
           ]
       )
-
       starts = np.nonzero(
-          var_states_for_edge_states == fg_state.vars_to_starts[variable]
+          var_states_for_edge_states == fg_state.vars_to_starts[name]
       )[0]
       for start in starts:
-        ftov_msgs = ftov_msgs.at[start : start + variable[1]].set(
+        ftov_msgs = ftov_msgs.at[start : start + name[1]].set(
             data / starts.shape[0]
         )
+
     else:
-      raise ValueError("Provided variable is not in the FactorGraph")
+      raise ValueError(
+          "Provided variable or factor type is not in the FactorGraph"
+      )
   return ftov_msgs
 
 
@@ -253,7 +266,7 @@ class FToVMessages:
   def __setitem__(
       self,
       variable: Tuple[int, int],
-      data: Union[np.ndarray, jnp.ndarray],
+      data: jax.typing.ArrayLike,
   ) -> None:
     """Spreading beliefs at a variable to all connected Factors.
 
@@ -279,10 +292,10 @@ class FToVMessages:
 @functools.partial(jax.jit, static_argnames="fg_state")
 def update_evidence(
     evidence: jnp.ndarray,
-    updates: Dict[Any, jnp.ndarray],
+    updates: Dict[Any, jax.typing.ArrayLike],
     fg_state: fgraph.FactorGraphState,
 ) -> jnp.ndarray:
-  """Function to update the evidence of a set of variables or VarGroups.
+  """Returns new evidence with updates for a set of variables or variables groups.
 
   Args:
     evidence: A flat jnp array containing evidence.
@@ -297,9 +310,9 @@ def update_evidence(
     (1) The provided evidence shape does not match the expected one
     (2) The provided variable or VarGroup is not in the Factorgraph
   """
-  # Clip updates to not have infinite values
+  # Copy to device and clip updates to not have infinite values
   updates = jax.tree_util.tree_map(
-      lambda x: jnp.clip(x, NEG_INF, -NEG_INF), updates
+      lambda x: jnp.clip(jax.device_put(x), NEG_INF, -NEG_INF), updates
   )
 
   for name, data in updates.items():
@@ -354,13 +367,10 @@ class Evidence:
         )
 
   def __getitem__(self, variable: Tuple[int, int]) -> np.ndarray:
-    """Function to query evidence for a variable.
+    """Returns the evidence of a queried variable.
 
     Args:
       variable: Variable queried
-
-    Returns:
-      Evidence for the queried variable
     """
     value = cast(np.ndarray, self.value)
     start = self.fg_state.vars_to_starts[variable]
@@ -372,7 +382,7 @@ class Evidence:
       name: Any,
       data: np.ndarray,
   ) -> None:
-    """Function to update the evidence for variables.
+    """Updates the evidence of a variable group or of a variable.
 
     Args:
       name: The name of a variable group or a single variable. If name is the

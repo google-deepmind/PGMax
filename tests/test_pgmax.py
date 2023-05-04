@@ -412,8 +412,8 @@ def test_e2e_sanity_check():
   )
   bp_state.evidence[grid_vars] = grid_evidence_arr
   bp_state.evidence[additional_vars] = additional_vars_evidence_dict
-  bp = infer.BP(bp_state)
-  bp_arrays = bp.run_bp(bp.init(), num_iters=100)
+  bp = infer.build_inferer(bp_state, backend="bp")
+  bp_arrays = bp.run(bp.init(), num_iters=100, temperature=0.0)
   # Test that the output messages are close to the true messages
   assert jnp.allclose(bp_arrays.ftov_msgs, true_final_msgs_output, atol=1e-06)
   decoded_map_states = infer.decode_map_states(bp.get_beliefs(bp_arrays))
@@ -469,7 +469,7 @@ def test_e2e_heretic():
   _ = bp_state.evidence[hidden_vars[0, 0]]
   assert isinstance(bp_state.evidence.value, np.ndarray)
   assert len(sum(fg.factors.values(), ())) == 7056
-  bp = infer.BP(bp_state, temperature=1.0)
-  bp_arrays = bp.run_bp(bp.init(), num_iters=1)
+  bp = infer.build_inferer(bp_state, backend="bp")
+  bp_arrays = bp.run(bp.init(), num_iters=1, temperature=1.0)
   marginals = infer.get_marginals(bp.get_beliefs(bp_arrays))
   assert jnp.allclose(jnp.sum(marginals[pixel_vars], axis=-1), 1.0)

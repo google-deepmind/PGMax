@@ -1,4 +1,4 @@
-# Copyright 2022 Intrinsic Innovation LLC.
+# Copyright 2023 DeepMind Technologies Limited.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,24 @@
 import functools
 from typing import Any, Callable
 
-# A large negative value to use as -inf for numerical stability reasons
-NEG_INF = -1e20
+import jax.numpy as jnp
+
+# A large negative value used to clip message assignments.
+# It can be useful to limit this for gradient/numerical stability
+# in small models but it can cause max product to fail to find
+# a globally optimal solution.
+MSG_NEG_INF = -1e32
+
+# A large absolute value used to clip log potentials at runtime, as inf
+# log potentials can result in NaN results during message normalization
+# You probably want LOG_POTENTIAL_MAX_ABS * MSG_NEG_INF to be finite.
+# Doesn't apply in computing the energy of a decoding by default.
+LOG_POTENTIAL_MAX_ABS = 1e6
+
+# What value to use as a "base" value for, e.g., log potentials of specific
+# configs.  If NEG_INF is too close to MSG_NEG_INF, it'll blow up as unlikely
+# configs become extremely likely.
+NEG_INF = jnp.NINF
 
 
 def cached_property(func: Callable[..., Any]) -> property:

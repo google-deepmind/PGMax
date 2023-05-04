@@ -154,11 +154,16 @@ class NDVarArray(vgroup.VarGroup):
           f" {self.shape + (self.num_states.max(),)}. Got {data.shape}."
       )
 
-  def unflatten(self, flat_data: Union[np.ndarray, jnp.ndarray]) -> jnp.ndarray:
+  def unflatten(
+      self, flat_data: Union[np.ndarray, jnp.ndarray], per_state: bool
+  ) -> jnp.ndarray:
     """Function that recovers meaningful structured data from internal flat data array.
 
     Args:
       flat_data: Internal flat data array.
+      per_state:  If True, the provided data is per state, such as beliefs for
+        every state for every variable.  Alternatively, it is considered to be
+        per variable, such as a MAP decoding.
 
     Returns:
       Meaningful structured data.
@@ -178,19 +183,25 @@ class NDVarArray(vgroup.VarGroup):
           f"Can only unflatten 1D array. Got a {flat_data.ndim}D array."
       )
 
-    if flat_data.size == np.product(self.shape):
-      data = flat_data.reshape(self.shape)
-    elif flat_data.size == self.num_states.sum():
+    if per_state:
+      if flat_data.size != self.num_states.sum():
+        raise ValueError(
+            "flat_data size should be equal to "
+            f"{self.num_states.sum()}. Got size {flat_data.size}."
+        )
       data = jnp.full(
-          shape=self.shape + (self.num_states.max(),), fill_value=-jnp.inf
+          shape=self.shape + (self.num_states.max(initial=0),),
+          fill_value=-jnp.inf,
       )
       data = data.at[
           np.arange(data.shape[-1]) < self.num_states[..., None]
       ].set(flat_data)
-    else:
-      raise ValueError(
-          f"flat_data size should be equal to {np.product(self.shape)} or to "
-          f"{self.num_states.sum()}. Got size {flat_data.size}."
-      )
 
+    else:
+      if flat_data.size != np.product(self.shape):
+        raise ValueError(
+            f"flat_data size should be equal to {np.product(self.shape)}. "
+            f"Got size {flat_data.size}."
+        )
+      data = flat_data.reshape(self.shape)
     return data
