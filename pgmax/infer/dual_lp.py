@@ -73,11 +73,15 @@ def SDLP(bp_state: BPState) -> SmoothDualLP:
   ) -> Tuple[float, jnp.ndarray, jnp.ndarray, jnp.ndarray]:
     """Computes the Smooth Dual LP-MAP objective value and its closed-form gradient with respect to the dual messages.
 
-    Note 1: We reuse the Belief Propagation message updates at the temperature
-    equal to logsumexp_temp.
+    Note 1: The Smooth Dual LP-MAP problem is introduced in
+    https://papers.nips.cc/paper_files/paper/2012/file/bad5f33780c42f2588878a9d07405083-Paper.pdf
 
-    Note 2: Here, ftov_msgs correspond to the dual LP-MAP "messages"
-    (cf (1.2) https://people.csail.mit.edu/dsontag/papers/SonGloJaa_optbook.pdf)
+    Note 2: To compute the closed-form gradient of the Smooth Dual LP-MAP
+    objective value, we reuse the Belief Propagation message updates at the
+    temperature equal to logsumexp_temp.
+
+    Note 3: Here, ftov_msgs are the dual LP-MAP "messages" (see Section
+    1.3 in https://people.csail.mit.edu/dsontag/papers/SonGloJaa_optbook.pdf)
     which have a different semantic than the Belief Propagation "messages".
 
     Args:
@@ -383,8 +387,9 @@ def SDLP(bp_state: BPState) -> SmoothDualLP:
     Note 2: This lower bound is also a lower bound of the optimal objective
     value of the relaxed LP-MAP problem.
     A tighter lower bound could be derived for the LP-MAP problem, but it would
-    first require to map the dual messages to a feasible point for the primal
-    of the LP-MAP problem.
+    first require to map the dual messages to a feasible solution for the primal
+    of the LP-MAP problem. See Algorithm 1 in
+    https://papers.nips.cc/paper_files/paper/2012/file/bad5f33780c42f2588878a9d07405083-Paper.pdf
 
     Note 3: If the MAP lower bound and the LP-MAP upper bound returned by
     get_primal_upper_bound are equal, then strong duality theorem guarantees
