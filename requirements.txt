@@ -1,5 +1,4 @@
-typing_extensions; python_version>="3.7"
-typing_extensions; python_version<"3.11"
+typing_extensions; python_version>="3.8"
 jupyter>=1.0.0
 matplotlib>=3.2.0
 jax>=0.2.25

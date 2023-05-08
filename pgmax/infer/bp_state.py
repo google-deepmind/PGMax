@@ -58,7 +58,7 @@ class BPArrays:
 @functools.partial(jax.jit, static_argnames="fg_state")
 def update_log_potentials(
     log_potentials: jnp.ndarray,
-    updates: Dict[Any, jax.typing.ArrayLike],
+    updates: Dict[Any, Union[np.ndarray, jnp.ndarray]],
     fg_state: fgraph.FactorGraphState,
 ) -> jnp.ndarray:
   """Returns new log_potentials with updates for a set of factor groups.
@@ -148,7 +148,7 @@ class LogPotentials:
   def __setitem__(
       self,
       factor_group: fgroup.FactorGroup,
-      data: jax.typing.ArrayLike,
+      data: Union[np.ndarray, jnp.ndarray],
   ):
     """Set the log potentials for a FactorGroup.
 
@@ -172,7 +172,7 @@ class LogPotentials:
 @functools.partial(jax.jit, static_argnames="fg_state")
 def update_ftov_msgs(
     ftov_msgs: jnp.ndarray,
-    updates: Dict[Any, jax.typing.ArrayLike],
+    updates: Dict[Any, Union[np.ndarray, jnp.ndarray]],
     fg_state: fgraph.FactorGraphState,
 ) -> jnp.ndarray:
   """Returns new ftov_msgs with updates for a set of variables or factor types.
@@ -266,7 +266,7 @@ class FToVMessages:
   def __setitem__(
       self,
       variable: Tuple[int, int],
-      data: jax.typing.ArrayLike,
+      data: Union[np.ndarray, jnp.ndarray],
   ) -> None:
     """Spreading beliefs at a variable to all connected Factors.
 
@@ -292,7 +292,7 @@ class FToVMessages:
 @functools.partial(jax.jit, static_argnames="fg_state")
 def update_evidence(
     evidence: jnp.ndarray,
-    updates: Dict[Any, jax.typing.ArrayLike],
+    updates: Dict[Any, Union[np.ndarray, jnp.ndarray]],
     fg_state: fgraph.FactorGraphState,
 ) -> jnp.ndarray:
   """Returns new evidence with updates for a set of variables or variables groups.
