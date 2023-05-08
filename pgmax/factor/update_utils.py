@@ -104,7 +104,7 @@ def softmax_and_logsumexps_with_temp(
     labels: jnp.array,
     num_labels: int,
     temperature: float,
-) -> tuple[jnp.ndarray, jnp.ndarray]:
+) -> Tuple[jnp.ndarray, jnp.ndarray]:
   """Given a flattened sequence of elements and their corresponding labels, returns for each label the stable (1) softmax and (2) logsumexp at the given temperature.
 
   Args:
