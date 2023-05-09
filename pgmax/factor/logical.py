@@ -125,7 +125,7 @@ class LogicalFactor(factor.Factor):
 
   log_potentials: np.ndarray = dataclasses.field(
       init=False,
-      default=np.empty((0,)),
+      default_factory=lambda: np.empty((0,)),
   )
   edge_states_offset: int = dataclasses.field(init=False)
 

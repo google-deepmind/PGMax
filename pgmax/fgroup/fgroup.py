@@ -47,7 +47,7 @@ class FactorGroup:
   factor_configs: np.ndarray = dataclasses.field(init=False)
   log_potentials: np.ndarray = dataclasses.field(
       init=False,
-      default=np.empty((0,)),
+      default_factory=lambda: np.empty((0,)),
   )
   factor_type: Type[Any] = dataclasses.field(init=False)
 

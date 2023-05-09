@@ -103,7 +103,7 @@ class PoolFactor(factor.Factor):
 
   log_potentials: np.ndarray = dataclasses.field(
       init=False,
-      default=np.empty((0,)),
+      default_factory=lambda: np.empty((0,)),
   )
 
   def __post_init__(self):
