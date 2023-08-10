@@ -123,7 +123,7 @@ class NDVarArray(vgroup.VarGroup):
     Returns:
       Array of variables hashes.
     """
-    indices = np.reshape(np.arange(np.product(self.shape)), self.shape)
+    indices = np.reshape(np.arange(np.prod(self.shape)), self.shape)
     return self.__hash__() + indices
 
   def flatten(self, data: Union[np.ndarray, jnp.ndarray]) -> jnp.ndarray:
@@ -198,9 +198,9 @@ class NDVarArray(vgroup.VarGroup):
       ].set(flat_data)
 
     else:
-      if flat_data.size != np.product(self.shape):
+      if flat_data.size != np.prod(self.shape):
         raise ValueError(
-            f"flat_data size should be equal to {np.product(self.shape)}. "
+            f"flat_data size should be equal to {np.prod(self.shape)}. "
             f"Got size {flat_data.size}."
         )
       data = flat_data.reshape(self.shape)
