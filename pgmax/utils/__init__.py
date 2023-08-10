@@ -34,7 +34,7 @@ LOG_POTENTIAL_MAX_ABS = 1e6
 # What value to use as a "base" value for, e.g., log potentials of specific
 # configs.  If NEG_INF is too close to MSG_NEG_INF, it'll blow up as unlikely
 # configs become extremely likely.
-NEG_INF = jnp.NINF
+NEG_INF = -jnp.inf
 
 
 def cached_property(func: Callable[..., Any]) -> property:
