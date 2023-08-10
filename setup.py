@@ -15,7 +15,11 @@
 
 """Setup for PGMax package."""
 
+import os
 import setuptools
+
+
+_CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 def _get_version():
@@ -26,6 +30,15 @@ def _get_version():
         exec(line, g)  # pylint: disable=exec-used
         return g['__version__']
     raise ValueError('`__version__` not defined in `pgmax/__init__.py`')
+
+
+def _parse_requirements(path):
+  with open(os.path.join(_CURRENT_DIR, path)) as f:
+    return [
+        line.rstrip()
+        for line in f
+        if not (line.isspace() or line.startswith('#'))
+    ]
 
 
 VERSION = _get_version()
@@ -44,5 +57,8 @@ if __name__ == '__main__':
       long_description=open('README.md').read(),
       long_description_content_type='text/markdown',
       author_email='pgmax-dev@google.com',
+      install_requires=_parse_requirements(
+          os.path.join(_CURRENT_DIR, 'requirements.txt')
+      ),
       requires_python='>=3.7,<3.11',
   )

@@ -412,7 +412,7 @@ class PairwiseFactorGroup(fgroup.FactorGroup):
 
     assert isinstance(self.log_potential_matrix, np.ndarray)
     num_factors = len(self.factors)
-    if flat_data.size == num_factors * np.product(
+    if flat_data.size == num_factors * np.prod(
         self.log_potential_matrix.shape[-2:]
     ):
       data = flat_data.reshape(
