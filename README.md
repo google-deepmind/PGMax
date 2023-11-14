@@ -77,7 +77,7 @@ for [Recursive Cortical Networks](https://www.science.org/doi/10.1126/science.aa
 
 ## Citing PGMax
 
-Please consider citing our [companion paper](https://arxiv.org/abs/2202.04110)
+PGMax is part of the DeepMind JAX ecosystem. If you use PGMax in your work, please consider citing our [companion paper](https://arxiv.org/abs/2202.04110)
 ```
 @article{zhou2022pgmax,
   author = {Zhou, Guangyao and Dedieu, Antoine and Kumar, Nishanth and L{\'a}zaro-Gredilla, Miguel and Kushagra, Shrinu and George, Dileep},
@@ -86,7 +86,17 @@ Please consider citing our [companion paper](https://arxiv.org/abs/2202.04110)
   year={2022}
 }
 ```
-and using the [DeepMind JAX Ecosystem citation](https://github.com/deepmind/jax/blob/main/deepmind2020jax.txt) if you use PGMax in your work.
+and using the DeepMind JAX Ecosystem citation
+```
+bibtex
+@software{deepmind2020jax,
+  title = {The {D}eep{M}ind {JAX} {E}cosystem},
+  author = {DeepMind and Babuschkin, Igor and Baumli, Kate and Bell, Alison and Bhupatiraju, Surya and Bruce, Jake and Buchlovsky, Peter and Budden, David and Cai, Trevor and Clark, Aidan and Danihelka, Ivo and Dedieu, Antoine and Fantacci, Claudio and Godwin, Jonathan and Jones, Chris and Hemsley, Ross and Hennigan, Tom and Hessel, Matteo and Hou, Shaobo and Kapturowski, Steven and Keck, Thomas and Kemaev, Iurii and King, Michael and Kunesch, Markus and Martens, Lena and Merzic, Hamza and Mikulik, Vladimir and Norman, Tamara and Papamakarios, George and Quan, John and Ring, Roman and Ruiz, Francisco and Sanchez, Alvaro and Sartran, Laurent and Schneider, Rosalia and Sezener, Eren and Spencer, Stephen and Srinivasan, Srivatsan and Stanojevi\'{c}, Milo\v{s} and Stokowiec, Wojciech and Wang, Luyu and Zhou, Guangyao and Viola, Fabio},
+  url = {http://github.com/deepmind},
+  year = {2020},
+}
+```
+
 
 ## Note
 
