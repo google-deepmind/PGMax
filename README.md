@@ -49,7 +49,7 @@ cd PGMax
 python3 -m venv pgmax_env
 source pgmax_env/bin/activate
 pip install --upgrade pip setuptools
-pip install -e
+pip install -e .
 ```
 
 ### Install on GPU
