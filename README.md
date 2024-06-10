@@ -49,8 +49,7 @@ cd PGMax
 python3 -m venv pgmax_env
 source pgmax_env/bin/activate
 pip install --upgrade pip setuptools
-pip install -r requirements.txt
-python3 setup.py develop
+pip install -e
 ```
 
 ### Install on GPU
@@ -62,7 +61,7 @@ to install JAX for GPU.
 ## Getting Started
 
 
-Here are a few self-contained Colab notebooks to help you get started on using PGMax:
+Here are a few self-contained Colab notebooks to help you get started on using PGMax. We recommend running them on GPU instances:
 
 - [First tutorial for basic PGMax inference on an Ising model](https://colab.research.google.com/github/deepmind/PGMax/blob/master/examples/ising_model.ipynb)
 - [Advanced tutorial running inference on a Restricted Boltzmann Machine](https://colab.research.google.com/github/deepmind/PGMax/blob/master/examples/rbm.ipynb)
