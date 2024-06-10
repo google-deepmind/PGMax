@@ -21,9 +21,6 @@ and can be easily used as part of a larger end-to-end differentiable system.
 
 See our [companion paper](https://arxiv.org/abs/2202.04110) for more details.
 
-PGMax is under active development. APIs may change without notice,
-and expect rough edges!
-
 [**Installation**](#installation)
 | [**Getting started**](#getting-started)
 
@@ -67,13 +64,13 @@ to install JAX for GPU.
 
 Here are a few self-contained Colab notebooks to help you get started on using PGMax:
 
-- [Tutorial on basic PGMax usage](https://colab.research.google.com/github/deepmind/PGMax/blob/master/examples/rbm.ipynb)
-- [LBP inference on Ising model](https://colab.research.google.com/github/deepmind/PGMax/blob/master/examples/ising_model.ipynb)
+- [First tutorial for basic PGMax inference on an Ising model](https://colab.research.google.com/github/deepmind/PGMax/blob/master/examples/ising_model.ipynb)
+- [Advanced tutorial running inference on a Restricted Boltzmann Machine](https://colab.research.google.com/github/deepmind/PGMax/blob/master/examples/rbm.ipynb)
 - [Implementing max-product LBP](https://colab.research.google.com/github/deepmind/PGMax/blob/master/examples/rcn.ipynb)
 for [Recursive Cortical Networks](https://www.science.org/doi/10.1126/science.aag2612)
-- [End-to-end differentiable LBP for gradient-based PGM training](https://colab.research.google.com/github/deepmind/PGMax/blob/master/examples/gmrf.ipynb)
+- [End-to-end differentiable LBP for gradient-based PGM training](https://colab.research.google.com/github/deepmind/PGMax/blob/master/examples/grid_mrf.ipynb)
 - [2D binary deconvolution](https://colab.research.google.com/github/deepmind/PGMax/blob/master/examples/pmp_binary_deconvolution.ipynb)
-- [Alternative inference with Smooth Dual LP-MAP](https://colab.research.google.com/github/deepmind/PGMax/blob/master/examples/sdlp_examples.ipynb)
+- [Alternative inference using a Smooth Dual LP-MAP solver](https://colab.research.google.com/github/deepmind/PGMax/blob/master/examples/sdlp_examples.ipynb)
 
 ## Citing PGMax
 
@@ -91,7 +88,7 @@ and using the DeepMind JAX Ecosystem citation
 @software{deepmind2020jax,
   title = {The {D}eep{M}ind {JAX} {E}cosystem},
   author = {DeepMind and Babuschkin, Igor and Baumli, Kate and Bell, Alison and Bhupatiraju, Surya and Bruce, Jake and Buchlovsky, Peter and Budden, David and Cai, Trevor and Clark, Aidan and Danihelka, Ivo and Dedieu, Antoine and Fantacci, Claudio and Godwin, Jonathan and Jones, Chris and Hemsley, Ross and Hennigan, Tom and Hessel, Matteo and Hou, Shaobo and Kapturowski, Steven and Keck, Thomas and Kemaev, Iurii and King, Michael and Kunesch, Markus and Martens, Lena and Merzic, Hamza and Mikulik, Vladimir and Norman, Tamara and Papamakarios, George and Quan, John and Ring, Roman and Ruiz, Francisco and Sanchez, Alvaro and Sartran, Laurent and Schneider, Rosalia and Sezener, Eren and Spencer, Stephen and Srinivasan, Srivatsan and Stanojevi\'{c}, Milo\v{s} and Stokowiec, Wojciech and Wang, Luyu and Zhou, Guangyao and Viola, Fabio},
-  url = {http://github.com/deepmind},
+  url = {http://github.com/google-deepmind},
   year = {2020},
 }
 ```
