@@ -1,0 +1,21 @@
+name: pgmax_jmlr
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.9
+  - jupyter
+  - pip
+  - pytorch=2.3.1
+  - pytorch-cuda=11.8
+  - numpy
+  - scipy
+  - pip:
+    - joblib
+    - pdbpp
+    - matplotlib
+    - pgmax==0.6.1
+    - pgmpy==0.1.25
+    - pomegranate==1.0.4
