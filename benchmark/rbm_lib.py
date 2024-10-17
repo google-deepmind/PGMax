@@ -13,9 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Module with functions for RBM inference."""
+import functools
 import itertools
 from timeit import default_timer as timer
 
+import jax
+import jax.numpy as jnp
 import numpy as np
 import torch
 from pgmax import fgraph, fgroup, infer, vgroup
@@ -58,7 +61,9 @@ def enumeration_infer(W, bh, bv):
     return dict(hidden=optimal_hidden, visible=optimal_visible, energy=energy)
 
 
-def pomegranate_infer(W, bh, bv, optimal_state=None, backend='cuda'):
+def pomegranate_infer(
+    W, bh, bv, num_iters, batch_size=1, optimal_state=None, backend='cuda'
+):
     """Inference with pomegranate."""
     nh = bh.shape[0]
     nv = bv.shape[0]
@@ -68,7 +73,7 @@ def pomegranate_infer(W, bh, bv, optimal_state=None, backend='cuda'):
     hidden_unary_probs = softmax(hidden_evidence_vals, axis=-1)
     visible_unary_probs = softmax(visible_evidence_vals, axis=-1)
     # Construct factor graph
-    model = FactorGraph()
+    model = FactorGraph(max_iter=num_iters)
     hidden_variables = []
     for ii in tqdm(range(nh)):
         hidden_var = Categorical(hidden_unary_probs[[ii]])
@@ -91,8 +96,8 @@ def pomegranate_infer(W, bh, bv, optimal_state=None, backend='cuda'):
 
     # Do inference
     X_masked = torch.masked.MaskedTensor(
-        torch.zeros((1, nh + nv), dtype=torch.int32),
-        mask=torch.zeros((1, nh + nv), dtype=torch.bool),
+        torch.zeros((batch_size, nh + nv), dtype=torch.int32),
+        mask=torch.zeros((batch_size, nh + nv), dtype=torch.bool),
     )
     device = torch.device(backend)
     model = model.to(device)
@@ -127,7 +132,7 @@ def pomegranate_infer(W, bh, bv, optimal_state=None, backend='cuda'):
     )
 
 
-def pgmax_infer(W, bh, bv, optimal_state=None):
+def pgmax_infer(W, bh, bv, num_iters, batch_size=1, optimal_state=None):
     """Inference with PGMax."""
     # Initialize factor graph
     hidden_variables = vgroup.NDVarArray(num_states=2, shape=bh.shape)
@@ -165,21 +170,23 @@ def pgmax_infer(W, bh, bv, optimal_state=None):
 
     # Do inference
     bp = infer.build_inferer(fg.bp_state, backend="bp")
-    bp_arrays = bp.init(
+    bp_arrays = jax.vmap(bp.init, in_axes=0, out_axes=0)(
         evidence_updates={
-            hidden_variables: 0 * np.random.gumbel(size=(bh.shape[0], 2)),
-            visible_variables: 0 * np.random.gumbel(size=(bv.shape[0], 2)),
+            hidden_variables: jnp.zeros((batch_size, bh.shape[0], 2)),
+            visible_variables: jnp.zeros((batch_size, bv.shape[0], 2)),
         }
     )
     # Time inference time
     start = timer()
-    bp_arrays = bp.run(bp_arrays, num_iters=200, damping=0.5, temperature=0.0)
-    beliefs = bp.get_beliefs(bp_arrays)
+    bp_arrays = jax.vmap(
+        functools.partial(bp.run, num_iters=num_iters, damping=0.5, temperature=0.0)
+    )(bp_arrays)
+    beliefs = jax.vmap(bp.get_beliefs, in_axes=0, out_axes=0)(bp_arrays)
     map_states = infer.decode_map_states(beliefs)
     map_states[hidden_variables].block_until_ready()
     inference_time = timer() - start
-    pred_hidden = map_states[hidden_variables]
-    pred_visible = map_states[visible_variables]
+    pred_hidden = map_states[hidden_variables][0]
+    pred_visible = map_states[visible_variables][0]
     nh = bh.shape[0]
     nv = bv.shape[0]
     energy = calc_energies(hidden=pred_hidden, visible=pred_visible, W=W, bh=bh, bv=bv)

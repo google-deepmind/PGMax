@@ -59,37 +59,58 @@ for rbm_idx in range(n_rbms):
         [optimal_results['hidden'], optimal_results['visible']], axis=-1
     )
 
-    # Pomegranate on CPUs
-    results_fname = f'n_units_{n_units}_rbm_idx_{rbm_idx}_pomegranate_cpu.joblib'
-    if os.path.exists(results_fname):
-        pomegranate_results = joblib.load(results_fname)
-    else:
-        pomegranate_results = rbm_lib.pomegranate_infer(
-            W=W, bh=bh, bv=bv, optimal_state=optimal_state, backend='cpu'
-        )
-        joblib.dump(pomegranate_results, results_fname)
+    for num_iters in [20, 200]:
+        for batch_size in [1, 100, 1000]:
+            # Pomegranate on CPUs
+            results_fname = f'n_units_{n_units}_rbm_idx_{rbm_idx}_pomegranate_cpu_num_iters_{num_iters}_batch_size_{batch_size}.joblib'
+            if os.path.exists(results_fname):
+                pomegranate_results = joblib.load(results_fname)
+            else:
+                pomegranate_results = rbm_lib.pomegranate_infer(
+                    W=W,
+                    bh=bh,
+                    bv=bv,
+                    num_iters=num_iters,
+                    batch_size=batch_size,
+                    optimal_state=optimal_state,
+                    backend='cpu',
+                )
+                joblib.dump(pomegranate_results, results_fname)
 
-    print('Pomegranate cpu', pomegranate_results)
+            print('Pomegranate cpu', pomegranate_results)
 
-    # Pomegranate on GPUs
-    results_fname = f'n_units_{n_units}_rbm_idx_{rbm_idx}_pomegranate_gpu.joblib'
-    if os.path.exists(results_fname):
-        pomegranate_results = joblib.load(results_fname)
-    else:
-        pomegranate_results = rbm_lib.pomegranate_infer(
-            W=W, bh=bh, bv=bv, optimal_state=optimal_state, backend='cuda'
-        )
-        joblib.dump(pomegranate_results, results_fname)
+            # Pomegranate on GPUs
+            results_fname = f'n_units_{n_units}_rbm_idx_{rbm_idx}_pomegranate_gpu_num_iters_{num_iters}_batch_size_{batch_size}.joblib'
+            if os.path.exists(results_fname):
+                pomegranate_results = joblib.load(results_fname)
+            else:
+                pomegranate_results = rbm_lib.pomegranate_infer(
+                    W=W,
+                    bh=bh,
+                    bv=bv,
+                    num_iters=num_iters,
+                    batch_size=batch_size,
+                    optimal_state=optimal_state,
+                    backend='cuda',
+                )
+                joblib.dump(pomegranate_results, results_fname)
 
-    print('Pomegranate gpu', pomegranate_results)
+            print('Pomegranate gpu', pomegranate_results)
 
-    # PGMax
-    pgmax_results = rbm_lib.pgmax_infer(W=W, bh=bh, bv=bv, optimal_state=optimal_state)
-    print(f'PGMax {jax_platform_name}', pgmax_results)
-    joblib.dump(
-        pgmax_results,
-        f'n_units_{n_units}_rbm_idx_{rbm_idx}_pgmax_{jax_platform_name}.joblib',
-    )
+            # PGMax
+            pgmax_results = rbm_lib.pgmax_infer(
+                W=W,
+                bh=bh,
+                bv=bv,
+                num_iters=num_iters,
+                batch_size=batch_size,
+                optimal_state=optimal_state,
+            )
+            print(f'PGMax {jax_platform_name}', pgmax_results)
+            joblib.dump(
+                pgmax_results,
+                f'n_units_{n_units}_rbm_idx_{rbm_idx}_pgmax_{jax_platform_name}_num_iters_{num_iters}_batch_size_{batch_size}.joblib',
+            )
 
     # pgmpy
     results_fname = f'n_units_{n_units}_rbm_idx_{rbm_idx}_pgmpy.joblib'
@@ -119,37 +140,55 @@ for n_units in n_units_list:
             bv = np.random.logistic(size=(nv,))
             joblib.dump((W, bh, bv), rbm_weights_fname)
 
-        # Pomegranate on CPUs
-        results_fname = f'n_units_{n_units}_rbm_idx_{rbm_idx}_pomegranate_cpu.joblib'
-        if os.path.exists(results_fname):
-            pomegranate_results = joblib.load(results_fname)
-        else:
-            pomegranate_results = rbm_lib.pomegranate_infer(
-                W=W, bh=bh, bv=bv, backend='cpu'
-            )
-            joblib.dump(pomegranate_results, results_fname)
+        for num_iters in [20, 200]:
+            for batch_size in [1, 100, 1000]:
+                # Pomegranate on CPUs
+                results_fname = f'n_units_{n_units}_rbm_idx_{rbm_idx}_pomegranate_cpu_num_iters_{num_iters}_batch_size_{batch_size}.joblib'
+                if os.path.exists(results_fname):
+                    pomegranate_results = joblib.load(results_fname)
+                else:
+                    pomegranate_results = rbm_lib.pomegranate_infer(
+                        W=W,
+                        bh=bh,
+                        bv=bv,
+                        num_iters=num_iters,
+                        batch_size=batch_size,
+                        backend='cpu',
+                    )
+                    joblib.dump(pomegranate_results, results_fname)
 
-        print('Pomegranate cpu', pomegranate_results)
+                print('Pomegranate cpu', pomegranate_results)
 
-        # Pomegranate on GPUs
-        results_fname = f'n_units_{n_units}_rbm_idx_{rbm_idx}_pomegranate_gpu.joblib'
-        if os.path.exists(results_fname):
-            pomegranate_results = joblib.load(results_fname)
-        else:
-            pomegranate_results = rbm_lib.pomegranate_infer(
-                W=W, bh=bh, bv=bv, backend='cuda'
-            )
-            joblib.dump(pomegranate_results, results_fname)
+                # Pomegranate on GPUs
+                results_fname = f'n_units_{n_units}_rbm_idx_{rbm_idx}_pomegranate_gpu_num_iters_{num_iters}_batch_size_{batch_size}.joblib'
+                if os.path.exists(results_fname):
+                    pomegranate_results = joblib.load(results_fname)
+                else:
+                    pomegranate_results = rbm_lib.pomegranate_infer(
+                        W=W,
+                        bh=bh,
+                        bv=bv,
+                        num_iters=num_iters,
+                        batch_size=batch_size,
+                        backend='cuda',
+                    )
+                    joblib.dump(pomegranate_results, results_fname)
 
-        print('Pomegranate gpu', pomegranate_results)
+                print('Pomegranate gpu', pomegranate_results)
 
-        # PGMax
-        pgmax_results = rbm_lib.pgmax_infer(W=W, bh=bh, bv=bv)
-        print(f'PGMax {jax_platform_name}', pgmax_results)
-        joblib.dump(
-            pgmax_results,
-            f'n_units_{n_units}_rbm_idx_{rbm_idx}_pgmax_{jax_platform_name}.joblib',
-        )
+                # PGMax
+                pgmax_results = rbm_lib.pgmax_infer(
+                    W=W,
+                    bh=bh,
+                    bv=bv,
+                    num_iters=num_iters,
+                    batch_size=batch_size,
+                )
+                print(f'PGMax {jax_platform_name}', pgmax_results)
+                joblib.dump(
+                    pgmax_results,
+                    f'n_units_{n_units}_rbm_idx_{rbm_idx}_pgmax_{jax_platform_name}_num_iters_{num_iters}_batch_size_{batch_size}.joblib',
+                )
 
 # Without ground-truth, pgmpy. Slow, so saved for the last.
 for n_units in n_units_list:
