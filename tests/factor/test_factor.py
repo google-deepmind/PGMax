@@ -133,23 +133,25 @@ def test_logical_factor():
   with pytest.raises(
       ValueError, match="The highest LogicalFactor index must be 0"
   ):
-    factor.logical.LogicalWiring(
+    wiring = factor.logical.LogicalWiring(
         var_states_for_edges=None,
         parents_edge_states=parents_edge_states + np.array([[1, 0]]),
         children_edge_states=child_edge_state,
         edge_states_offset=1,
     )
+    wiring.get_inference_arguments()
 
   with pytest.raises(
       ValueError,
       match="The LogicalWiring must have 1 different LogicalFactor indices",
   ):
-    factor.logical.LogicalWiring(
+    wiring = factor.logical.LogicalWiring(
         var_states_for_edges=None,
         parents_edge_states=parents_edge_states + np.array([[0], [1]]),
         children_edge_states=child_edge_state,
         edge_states_offset=1,
     )
+    wiring.get_inference_arguments()
 
   with pytest.raises(
       ValueError,
@@ -158,12 +160,13 @@ def test_logical_factor():
           " (for AND), but is 0"
       ),
   ):
-    factor.logical.LogicalWiring(
+    wiring = factor.logical.LogicalWiring(
         var_states_for_edges=None,
         parents_edge_states=parents_edge_states,
         children_edge_states=child_edge_state,
         edge_states_offset=0,
     )
+    wiring.get_inference_arguments()
 
 
 def test_pool_factor():
@@ -199,19 +202,21 @@ def test_pool_factor():
   with pytest.raises(
       ValueError, match="The highest PoolFactor index must be 0"
   ):
-    factor.pool.PoolWiring(
+    wiring = factor.pool.PoolWiring(
         var_states_for_edges=None,
         pool_choices_edge_states=pool_choices_edge_states + np.array([[1, 0]]),
         pool_indicators_edge_states=pool_indicators_edge_state,
     )
+    wiring.get_inference_arguments()
 
   with pytest.raises(
       ValueError,
       match="The PoolWiring must have 1 different PoolFactor indices",
   ):
-    factor.pool.PoolWiring(
+    wiring = factor.pool.PoolWiring(
         var_states_for_edges=None,
         pool_indicators_edge_states=pool_indicators_edge_state,
         pool_choices_edge_states=pool_choices_edge_states
         + np.array([[0], [1]]),
     )
+    wiring.get_inference_arguments()

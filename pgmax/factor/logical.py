@@ -73,9 +73,8 @@ class LogicalWiring(factor.Wiring):
   children_edge_states: Union[np.ndarray, jnp.ndarray]
   edge_states_offset: int
 
-  def __post_init__(self):
-    super().__post_init__()
-
+  def get_inference_arguments(self) -> Dict[str, Any]:
+    """Return the list of arguments to run BP with LogicalWirings."""
     if self.children_edge_states.shape[0] > 0:
       logical_factor_indices = self.parents_edge_states[:, 0]
       num_logical_factors = self.children_edge_states.shape[0]
@@ -97,8 +96,6 @@ class LogicalWiring(factor.Wiring):
             f" (for AND), but is {self.edge_states_offset}"
         )
 
-  def get_inference_arguments(self) -> Dict[str, Any]:
-    """Return the list of arguments to run BP with LogicalWirings."""
     return {
         "parents_factor_indices": self.parents_edge_states[..., 0],
         "parents_msg_indices": self.parents_edge_states[..., 1],

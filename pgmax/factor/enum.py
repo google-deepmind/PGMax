@@ -51,9 +51,8 @@ class EnumWiring(factor.Wiring):
 
   factor_configs_edge_states: Union[np.ndarray, jnp.ndarray]
 
-  def __post_init__(self):
-    super().__post_init__()
-
+  def get_inference_arguments(self) -> Dict[str, Any]:
+    """Return the list of arguments to run BP with EnumWirings."""
     if self.factor_configs_edge_states.shape[0] == 0:
       num_val_configs = 0
     else:
@@ -65,10 +64,6 @@ class EnumWiring(factor.Wiring):
     else:
       num_factors = int(self.var_states_for_edges[-1, 2]) + 1
     object.__setattr__(self, "num_factors", num_factors)
-
-  def get_inference_arguments(self) -> Dict[str, Any]:
-    """Return the list of arguments to run BP with EnumWirings."""
-    assert hasattr(self, "num_val_configs")
     return {
         "factor_configs_indices": self.factor_configs_edge_states[..., 0],
         "factor_configs_edge_states": self.factor_configs_edge_states[..., 1],

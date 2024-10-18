@@ -59,9 +59,8 @@ class PoolWiring(factor.Wiring):
   pool_choices_edge_states: Union[np.ndarray, jnp.ndarray]
   pool_indicators_edge_states: Union[np.ndarray, jnp.ndarray]
 
-  def __post_init__(self):
-    super().__post_init__()
-
+  def get_inference_arguments(self) -> Dict[str, Any]:
+    """Return the list of arguments to run BP with LogicalWirings."""
     if self.pool_choices_edge_states.shape[0] > 0:
       pool_factor_indices = self.pool_choices_edge_states[:, 0]
       num_pool_factors = self.pool_indicators_edge_states.shape[0]
@@ -77,8 +76,6 @@ class PoolWiring(factor.Wiring):
             f"The highest PoolFactor index must be {num_pool_factors - 1}"
         )
 
-  def get_inference_arguments(self) -> Dict[str, Any]:
-    """Return the list of arguments to run BP with LogicalWirings."""
     return {
         "pool_choices_factor_indices": self.pool_choices_edge_states[..., 0],
         "pool_choices_msg_indices": self.pool_choices_edge_states[..., 1],
